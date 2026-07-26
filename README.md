@@ -1,20 +1,33 @@
 # Map Game
 
-Pixel-based strategy map prototype (mobile-friendly HTML5 canvas).
+Pixel strategy prototype — collect wood & Virelium, build bases, train workers, tunnel mountains.
 
-## How to play
+## Run locally
 
-Open `index.html` in a browser (or enable GitHub Pages on this repo).
+Open `index.html` in a browser, or:
 
-- Tap the red dot to select a worker
-- **Move** / **Cut** / **Mine** / **Tunnel** / **Build**
-- Tap purple base → **Train** new workers
-- Trees have density 1–5; Virelium deposits 1–10
-- Tunnel through mountains by picking start + end points
+```bash
+npx serve .
+```
 
-## Features
+## Project layout
 
-- Procedural map: dirt, mountain ranges, ocean/rivers, forests, Virelium jets
-- Pathfinding (A*) with obstacle avoidance
-- Resource collection with carry limits and base deposit
-- Tunnel carving through rock
+```
+index.html          # shell + UI markup
+css/style.css       # full-screen mobile UI
+js/config.js        # tiles, colors, speeds, footprint
+js/state.js         # units, selection, claims, resources
+js/map.js           # generation + walkability + elevation
+js/pathfinding.js   # A* pathfinding
+js/actions.js       # move / cut / mine / build / tunnel / train
+js/ui.js            # bottom bar labels
+js/render.js        # canvas draw
+js/input.js         # pan, zoom, tap
+js/main.js          # game loop, buttons, boot
+```
+
+## Controls
+
+- Tap worker (red) → Move, Cut, Mine, Tunnel, Build, Cancel
+- Tap base (purple) → Train
+- Tunnel: pick start, then end; worker digs through rock slowly

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Map Game</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="info">Tap a red dot or purple base to select</div>
+<div id="ui">
+  <div id="mapActions">
+    <button id="btnNew">New Map</button>
+    <button id="btnResetView">Reset View</button>
+  </div>
+  <div id="unitActions">
+    <button id="btnMove">Move</button>
+    <button id="btnCut">Cut</button>
+    <button id="btnMine">Mine</button>
+    <button id="btnTunnel">Tunnel</button>
+    <button id="btnBuild">Build</button>
+    <button id="btnCancel">Cancel</button>
+  </div>
+  <div id="baseActions">
+    <button id="btnTrain">Train</button>
+    <button id="btnCancelBase">Cancel</button>
+  </div>
+</div>
+
+<!-- Load order: config → state → map → path → actions → ui → render → input → main -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/map.js"></script>
+<script src="js/pathfinding.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/render.js"></script>
+<script src="js/input.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

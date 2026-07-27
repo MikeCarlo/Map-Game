@@ -6,6 +6,7 @@ let mineralMap = null;
 let treeDensity = null;
 let rockElev = null;
 let jets = []; // { x, y, radius, interval, amount, timer }
+let jetPulses = []; // { x, y, radius, amount, age, maxAge }
 let camX = 0, camY = 0, zoom = 1, dpr = 1;
 let isDragging = false, lastX = 0, lastY = 0, lastPinchDist = 0;
 let pointerDownPos = null, didPan = false;

@@ -14,6 +14,8 @@ function gameLoop(now) {
   lastFrameTime = now;
   let needDraw = false;
 
+  if (updateJets(dt)) needDraw = true;
+
   for (const u of units) {
     if (u.harvesting && u.harvestTimer > 0) {
       u.harvestTimer -= dt;

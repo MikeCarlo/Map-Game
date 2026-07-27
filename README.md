@@ -2,7 +2,9 @@
 
 Pixel strategy prototype — explore a procedural map, harvest resources, build bases, train workers, and tunnel through mountains.
 
-**Play online:** open [index.html](index.html) after enabling GitHub Pages, or clone and run locally.
+**Play online:** [https://mikecarlo.github.io/Map-Game/](https://mikecarlo.github.io/Map-Game/)
+
+Or open [index.html](index.html) after cloning, or run a local server.
 
 ---
 

@@ -192,6 +192,7 @@ function generateTrees(m, dens) {
 
 function generateJets(m, minerals) {
   jets = [];
+  jetPulses = [];
   const jetCount = rand(2, 4);
   for (let j = 0; j < jetCount; j++) {
     let cx, cy, ok = false;
@@ -205,11 +206,9 @@ function generateJets(m, minerals) {
     minerals[cy][cx] = 0;
 
     const radius = rand(5, 9);
-    // Per-jet personality: slow/fast cycle + weak/strong spew
     const interval = rand(JET_SPEW_INTERVAL_MIN, JET_SPEW_INTERVAL_MAX);
     const amount = rand(JET_SPEW_AMOUNT_MIN, JET_SPEW_AMOUNT_MAX);
 
-    // Initial scatter (same as before)
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (dx === 0 && dy === 0) continue;
@@ -232,9 +231,20 @@ function generateJets(m, minerals) {
       radius,
       interval,
       amount,
-      timer: interval * (0.3 + Math.random() * 0.7) // stagger first spew
+      timer: interval * (0.3 + Math.random() * 0.7)
     });
   }
+}
+
+function spawnJetPulse(jet) {
+  jetPulses.push({
+    x: jet.x + 0.5,
+    y: jet.y + 0.5,
+    radius: jet.radius,
+    amount: jet.amount,
+    age: 0,
+    maxAge: JET_PULSE_DURATION
+  });
 }
 
 /** Add density around a jet. Returns true if any tile changed. */
@@ -252,17 +262,19 @@ function spewJet(jet) {
       if (t !== TILE_DIRT && t !== TILE_STUMP) continue;
       const cur = mineralMap[ny][nx] || 0;
       if (cur >= JET_MINERAL_CAP) continue;
-      // Prefer emptier / closer tiles
       const weight = (1 - dist / (jet.radius + 1)) * (1 - cur / JET_MINERAL_CAP);
       candidates.push({ x: nx, y: ny, weight, cur });
     }
   }
-  if (!candidates.length) return false;
+  if (!candidates.length) {
+    // Still show a pulse even if area is full — visual feedback that jet fired
+    spawnJetPulse(jet);
+    return true;
+  }
 
   let remaining = jet.amount;
   let changed = false;
   while (remaining > 0 && candidates.length) {
-    // Weighted random pick
     let total = 0;
     for (const c of candidates) total += Math.max(0.05, c.weight);
     let r = Math.random() * total;
@@ -280,19 +292,29 @@ function spewJet(jet) {
     remaining -= add;
     changed = true;
   }
+  if (changed) spawnJetPulse(jet);
   return changed;
 }
 
+function updateJetPulses(dt) {
+  if (!jetPulses.length) return false;
+  for (const p of jetPulses) p.age += dt;
+  jetPulses = jetPulses.filter(p => p.age < p.maxAge);
+  return true;
+}
+
 function updateJets(dt) {
-  if (!jets || !jets.length) return false;
   let changed = false;
-  for (const jet of jets) {
-    jet.timer -= dt;
-    if (jet.timer <= 0) {
-      if (spewJet(jet)) changed = true;
-      jet.timer = jet.interval;
+  if (jets && jets.length) {
+    for (const jet of jets) {
+      jet.timer -= dt;
+      if (jet.timer <= 0) {
+        if (spewJet(jet)) changed = true;
+        jet.timer = jet.interval;
+      }
     }
   }
+  if (updateJetPulses(dt)) changed = true;
   return changed;
 }
 
@@ -325,5 +347,6 @@ function newMap() {
   selectedUnitId = null; selectedBase = null; actionMode = null;
   woodInBase = 0; vireliumInBase = 0;
   claimedTrees.clear(); claimedMinerals.clear();
+  jetPulses = [];
   updateUI(); draw();
 }

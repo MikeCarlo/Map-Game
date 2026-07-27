@@ -56,11 +56,14 @@ function findNearestBaseDeposit(fromX, fromY, maxRange = 80) {
   }
   return null;
 }
+
+// ── Cut (wood) — mirrors mine pattern ──
 function setCutTarget(u, worldX, worldY) {
+  if (u.carryingWood || u.carryingVirelium) return false;
   let gx = Math.floor(worldX), gy = Math.floor(worldY);
   if (!(inBounds(gx, gy) && map[gy][gx] === TILE_TREE && !isTreeClaimedByOther(gx, gy, u.id))) {
     let found = false;
-    for (let r = 0; r <= 6 && !found; r++)
+    for (let r = 0; r <= 8 && !found; r++)
       for (let dy = -r; dy <= r && !found; dy++)
         for (let dx = -r; dx <= r && !found; dx++) {
           const nx = gx + dx, ny = gy + dy;
@@ -76,11 +79,12 @@ function setCutTarget(u, worldX, worldY) {
   }
   releaseAllClaimsForUnit(u.id);
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
-  let tiles = aStar(sx, sy, gx, gy, true);
-  if (!tiles || !tiles.length) tiles = pathToClosest(sx, sy, gx, gy);
+  // allowTreeGoal=true because TREE tiles are not walkable
+  let tiles = aStar(sx, sy, gx, gy, true) || pathToClosest(sx, sy, gx, gy);
   if (!tiles || !tiles.length) return false;
   claimTree(gx, gy, u.id);
   u.harvesting = true; u.returningToBase = false;
+  u.mining = false; u.carryingVirelium = false;
   u.harvestTX = gx; u.harvestTY = gy; u.harvestTimer = 0;
   return applyPath(u, tiles);
 }
@@ -100,17 +104,9 @@ function depositWoodAndContinue(u) {
   if (u.carryingWood) { u.carryingWood = false; woodInBase++; }
   u.returningToBase = false;
   if (u.harvesting) {
-    let next = null;
-    if (u.preferTreeX !== null && u.preferTreeY !== null &&
-        inBounds(u.preferTreeX, u.preferTreeY) &&
-        map[u.preferTreeY][u.preferTreeX] === TILE_TREE &&
-        treeDensity && treeDensity[u.preferTreeY][u.preferTreeX] > 0) {
-      next = { x: u.preferTreeX, y: u.preferTreeY };
-    } else {
-      next = findNearestTree(Math.floor(u.x), Math.floor(u.y), u.id);
-    }
+    const next = findNearestTree(Math.floor(u.x), Math.floor(u.y), u.id);
     if (next) setCutTarget(u, next.x + 0.5, next.y + 0.5);
-    else { clearUnitOrders(u); }
+    else clearUnitOrders(u);
   }
   updateUI();
 }
@@ -133,26 +129,22 @@ function startHarvestOnArrival(u) {
   }
 }
 function finishCurrentTree(u) {
-  const hx = u.harvestTX, hy = u.harvestTY;
-  if (hx !== null && hy !== null && inBounds(hx, hy) && map[hy][hx] === TILE_TREE) {
+  if (u.harvestTX !== null && u.harvestTY !== null &&
+      inBounds(u.harvestTX, u.harvestTY) && map[u.harvestTY][u.harvestTX] === TILE_TREE) {
     if (!treeDensity) {
       treeDensity = new Array(MAP_H);
       for (let y = 0; y < MAP_H; y++) treeDensity[y] = new Array(MAP_W).fill(0);
     }
-    if (treeDensity[hy][hx] <= 0) treeDensity[hy][hx] = 1;
-    treeDensity[hy][hx] -= 1;
-    if (treeDensity[hy][hx] <= 0) {
-      treeDensity[hy][hx] = 0;
-      map[hy][hx] = TILE_STUMP;
-      releaseTree(hx, hy, u.id);
-      u.preferTreeX = u.preferTreeY = null;
-    } else {
-      u.preferTreeX = hx;
-      u.preferTreeY = hy;
-    }
+    if (treeDensity[u.harvestTY][u.harvestTX] <= 0) treeDensity[u.harvestTY][u.harvestTX] = 1;
+    treeDensity[u.harvestTY][u.harvestTX] -= 1;
     u.carryingWood = true;
-  } else if (hx !== null && hy !== null) {
-    releaseTree(hx, hy, u.id);
+    if (treeDensity[u.harvestTY][u.harvestTX] <= 0) {
+      treeDensity[u.harvestTY][u.harvestTX] = 0;
+      map[u.harvestTY][u.harvestTX] = TILE_STUMP;
+      releaseTree(u.harvestTX, u.harvestTY, u.id);
+    }
+  } else if (u.harvestTX !== null) {
+    releaseTree(u.harvestTX, u.harvestTY, u.id);
   }
   u.harvestTimer = 0; u.harvestTX = u.harvestTY = null;
   if (u.carryingWood && u.harvesting) returnToBaseWithWood(u);
@@ -161,6 +153,7 @@ function finishCurrentTree(u) {
   draw();
 }
 
+// ── Mine (Virelium) ──
 function findNearestMineral(fromX, fromY, unitId, maxRange = 50) {
   const key = (x, y) => y * MAP_W + x;
   const queue = [{ x: fromX, y: fromY, d: 0 }], visited = new Set([key(fromX, fromY)]);

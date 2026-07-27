@@ -57,9 +57,10 @@ const VIRELIUM_WEIGHT = 3;
 // Jet spew: interval is per-jet (slow 120s → fast 30s), amount is how much density is added per cycle
 const JET_SPEW_INTERVAL_MIN = 30;
 const JET_SPEW_INTERVAL_MAX = 120;
-const JET_SPEW_AMOUNT_MIN = 1;   // weak jets add this much total density per cycle
-const JET_SPEW_AMOUNT_MAX = 6;   // strong jets add up to this much total density per cycle
-const JET_MINERAL_CAP = 10;      // max density on a single tile
+const JET_SPEW_AMOUNT_MIN = 1;
+const JET_SPEW_AMOUNT_MAX = 6;
+const JET_MINERAL_CAP = 10;
+const JET_PULSE_DURATION = 1.4; // seconds for expanding cyan pulse
 
 function getUnitSpeed(u) {
   if (u.tunneling && u.tunnelCarvePath === null && u.path && u.path.length) {

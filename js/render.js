@@ -8,6 +8,51 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   draw();
 }
+
+function drawJetPulses() {
+  if (!jetPulses || !jetPulses.length) return;
+  for (const p of jetPulses) {
+    const t = Math.min(1, p.age / p.maxAge);
+    // Ease-out expand
+    const expand = 1 - Math.pow(1 - t, 2);
+    const maxR = (p.radius + 1.2) * TILE * zoom;
+    const minR = TILE * zoom * 0.4;
+    const r = minR + (maxR - minR) * expand;
+    const alpha = (1 - t) * (0.35 + 0.15 * Math.min(1, p.amount / 6));
+    const cx = camX + p.x * TILE * zoom;
+    const cy = camY + p.y * TILE * zoom;
+
+    // Outer glow ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0, 229, 255, ${alpha * 0.9})`;
+    ctx.lineWidth = Math.max(1.5, 2.5 * zoom * (1 - t * 0.5));
+    ctx.stroke();
+
+    // Second trailing ring (slightly behind)
+    if (t > 0.12) {
+      const t2 = Math.max(0, t - 0.12);
+      const expand2 = 1 - Math.pow(1 - t2, 2);
+      const r2 = minR + (maxR - minR) * expand2 * 0.85;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r2, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(0, 188, 212, ${alpha * 0.45})`;
+      ctx.lineWidth = Math.max(1, 1.5 * zoom);
+      ctx.stroke();
+    }
+
+    // Bright core flash at start
+    if (t < 0.35) {
+      const coreA = (1 - t / 0.35) * 0.55;
+      const coreR = TILE * zoom * (0.6 + t * 1.2);
+      ctx.beginPath();
+      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0, 229, 255, ${coreA})`;
+      ctx.fill();
+    }
+  }
+}
+
 function draw() {
   if (!map) return;
   const w = window.innerWidth, h = window.innerHeight;
@@ -45,6 +90,8 @@ function draw() {
       }
     }
   }
+
+  drawJetPulses();
 
   if (selectedBase) {
     const sx = camX + selectedBase.x * TILE * zoom;

@@ -353,6 +353,58 @@ function placeStartingBase(m, dens, minerals) {
   return spot;
 }
 
+function canPlaceHutOn(m, ax, ay) {
+  for (const { dx, dy } of HUT_FOOTPRINT) {
+    const x = ax + dx, y = ay + dy;
+    if (!inBounds(x, y)) return false;
+    const t = m[y][x];
+    if (t !== TILE_DIRT && t !== TILE_STUMP && t !== TILE_TREE) return false;
+  }
+  return true;
+}
+
+function placeEnemyHut(m, dens, minerals, baseSpot) {
+  huts = [];
+  const minDist = 28;
+  let placed = null;
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const ax = rand(6, MAP_W - HUT_SIZE - 6);
+    const ay = rand(6, MAP_H - HUT_SIZE - 6);
+    if (!canPlaceHutOn(m, ax, ay)) continue;
+    const hx = ax + HUT_SIZE / 2, hy = ay + HUT_SIZE / 2;
+    const bx = baseSpot.x + BASE_SEGMENT_SIZE / 2, by = baseSpot.y + BASE_SEGMENT_SIZE / 2;
+    if (Math.hypot(hx - bx, hy - by) < minDist) continue;
+    // clear and place
+    for (const { dx, dy } of HUT_FOOTPRINT) {
+      const x = ax + dx, y = ay + dy;
+      m[y][x] = TILE_HUT;
+      dens[y][x] = 0;
+      minerals[y][x] = 0;
+    }
+    // clear a small ring so enemies can spawn
+    for (let dy = -1; dy < HUT_SIZE + 1; dy++)
+      for (let dx = -1; dx < HUT_SIZE + 1; dx++) {
+        const x = ax + dx, y = ay + dy;
+        if (!inBounds(x, y)) continue;
+        if (m[y][x] === TILE_TREE || m[y][x] === TILE_STUMP) {
+          m[y][x] = TILE_DIRT;
+          dens[y][x] = 0;
+        }
+      }
+    const interval = rand(HUT_SPAWN_INTERVAL_MIN, HUT_SPAWN_INTERVAL_MAX);
+    placed = {
+      id: nextHutId++,
+      x: ax, y: ay,
+      hp: HUT_MAX_HP,
+      maxHp: HUT_MAX_HP,
+      spawnTimer: interval * 0.4
+    };
+    huts.push(placed);
+    break;
+  }
+  return placed;
+}
+
 function spawnWorkerBesideBase(spot) {
   const dirs = [[-1,1],[3,1],[1,-1],[1,3],[-1,0],[3,0],[0,-1],[0,3],[1,1]];
   for (const [dx, dy] of dirs) {
@@ -378,6 +430,7 @@ function generateMap() {
   }
   generateRockVeins(m); generateWater(m); generateTrees(m, dens); generateJets(m, minerals);
   const baseSpot = placeStartingBase(m, dens, minerals);
+  placeEnemyHut(m, dens, minerals, baseSpot);
   mineralMap = minerals;
   treeDensity = dens;
   map = m;
@@ -389,7 +442,8 @@ function generateMap() {
 function newMap() {
   const { baseSpot } = generateMap();
   units = [spawnWorkerBesideBase(baseSpot)];
-  selectedUnitId = null; selectedBase = null; selectedArmory = null; actionMode = null;
+  selectedUnitId = null; selectedBase = null; selectedArmory = null; selectedHut = null; actionMode = null;
+  selectedUnitIds = []; fullSelectionIds = [];
   woodInBase = 0; vireliumInBase = 0;
   claimedTrees.clear(); claimedMinerals.clear();
   jetPulses = [];

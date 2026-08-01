@@ -26,6 +26,7 @@ html, body {
 #mapActions,
 #unitActions,
 #soldierActions,
+#groupActions,
 #buildMenu,
 #baseActions,
 #armoryActions {
@@ -39,6 +40,7 @@ html, body {
 #baseActions,
 #armoryActions,
 #soldierActions,
+#groupActions,
 #buildMenu {
   flex-direction: row;
   flex-wrap: wrap;
@@ -74,8 +76,8 @@ button:disabled {
   transform: none;
 }
 
-#btnMove, #btnSoldierMove { background: #2e7d32; border-color: #4caf50; }
-#btnMove.active, #btnSoldierMove.active { background: #c62828; border-color: #ef5350; }
+#btnMove, #btnSoldierMove, #btnGroupMove { background: #2e7d32; border-color: #4caf50; }
+#btnMove.active, #btnSoldierMove.active, #btnGroupMove.active { background: #c62828; border-color: #ef5350; }
 #btnCut { background: #6d4c41; border-color: #8d6e63; }
 #btnCut.active { background: #c62828; border-color: #ef5350; }
 #btnBuild { background: #6a1b9a; border-color: #9c27b0; }
@@ -93,13 +95,14 @@ button:disabled {
 #btnCancelBase,
 #btnCancelArmory,
 #btnBuildCancel,
-#btnSoldierCancel { background: #4a4a4a; border-color: #666; }
+#btnSoldierCancel,
+#btnGroupCancel { background: #4a4a4a; border-color: #666; }
 
 #info {
   position: fixed;
   top: max(8px, env(safe-area-inset-top));
   left: 8px;
-  right: 8px;
+  right: 72px;
   color: #ccc;
   font-size: 12px;
   background: rgba(0, 0, 0, 0.65);
@@ -107,8 +110,36 @@ button:disabled {
   border-radius: 6px;
   pointer-events: none;
   z-index: 10;
-  max-width: calc(100% - 16px);
+  max-width: calc(100% - 80px);
   line-height: 1.35;
+}
+
+/* Camera pan / select mode badge */
+#cameraMode.camera-mode {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  right: 8px;
+  z-index: 11;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  border: 1px solid transparent;
+  min-width: 56px;
+  text-align: center;
+}
+#cameraMode.pan-on {
+  background: rgba(46, 125, 50, 0.9);
+  color: #E8F5E9;
+  border-color: #81C784;
+}
+#cameraMode.pan-locked {
+  background: rgba(245, 127, 23, 0.95);
+  color: #FFF8E1;
+  border-color: #FFB74D;
+  box-shadow: 0 0 0 2px rgba(255, 183, 77, 0.35);
 }
 
 @media (min-width: 420px) {

@@ -29,7 +29,7 @@ function startBoxSelect(x, y) {
   longPressFired = true;
   boxSelectStart = { x, y };
   boxSelectCurrent = { x, y };
-  didPan = true; // suppress normal tap
+  didPan = true;
   draw();
 }
 
@@ -43,14 +43,12 @@ function finishBoxSelect() {
   const y1 = Math.min(boxSelectStart.y, boxSelectCurrent.y);
   const x2 = Math.max(boxSelectStart.x, boxSelectCurrent.x);
   const y2 = Math.max(boxSelectStart.y, boxSelectCurrent.y);
-  // Tiny box (barely moved) — treat as no selection change if empty
   const ids = [];
   for (const u of units) {
     const sx = camX + u.x * TILE * zoom;
     const sy = camY + u.y * TILE * zoom;
     if (sx >= x1 && sx <= x2 && sy >= y1 && sy <= y2) ids.push(u.id);
   }
-  // Future: enforce MAX_SELECTION_SIZE here
   if (ids.length) setMultiSelection(ids);
   else clearSelection();
   boxSelectActive = false;
@@ -60,7 +58,6 @@ function finishBoxSelect() {
 
 function toggleCameraPan() {
   cameraPanEnabled = !cameraPanEnabled;
-  // Cancel any in-progress box select when unlocking pan
   if (cameraPanEnabled) {
     boxSelectActive = false;
     boxSelectStart = boxSelectCurrent = null;
@@ -78,18 +75,17 @@ function updateCameraModeIndicator() {
   if (cameraPanEnabled) {
     el.textContent = 'PAN';
     el.className = 'camera-mode pan-on';
-    el.title = 'Camera pan ON — double-tap to lock camera for multi-select';
+    el.title = 'Camera pan ON — double-tap empty ground to lock for multi-select';
   } else {
     el.textContent = 'SELECT';
     el.className = 'camera-mode pan-locked';
-    el.title = 'Camera locked — long-press and drag to multi-select. Double-tap to unlock pan.';
+    el.title = 'Camera locked — long-press drag to multi-select. Double-tap empty to unlock.';
   }
 }
 
 function handleTap(clientX, clientY) {
   if (clientY >= uiPanelTop() - 4) return;
 
-  // Double-tap detection (anywhere on map, not on UI)
   const now = performance.now();
   const isDouble =
     now - lastTapTime < DOUBLE_TAP_MS &&
@@ -97,15 +93,25 @@ function handleTap(clientX, clientY) {
   lastTapTime = now;
   lastTapX = clientX;
   lastTapY = clientY;
+
+  const hitForDouble = unitAtScreen(clientX, clientY);
   if (isDouble) {
-    toggleCameraPan();
+    if (hitForDouble) {
+      // Double-tap unit: select similar idle of same type nearby
+      selectSimilarNear(hitForDouble);
+      actionMode = null;
+      updateUI(); draw();
+    } else {
+      // Double-tap empty ground: toggle camera pan / select mode
+      toggleCameraPan();
+    }
     return;
   }
 
   const selected = getSelectedUnits();
   const primary = selected[0] || null;
+  const comp = selectionComposition(selected);
 
-  // Group / single move target
   if (actionMode === 'moveTarget' && selected.length) {
     const tile = screenToTile(clientX, clientY);
     if (selected.length === 1) {
@@ -118,12 +124,37 @@ function handleTap(clientX, clientY) {
     return;
   }
 
-  const u = primary;
-  if (actionMode === 'cutTarget' && u) {
+  if (actionMode === 'cutTarget' && selected.length) {
     const tile = screenToTile(clientX, clientY);
-    if (setCutTarget(u, tile.x, tile.y)) { actionMode = null; updateUI(); draw(); }
+    const workers = selected.filter(u => u.unitType === 'worker');
+    if (workers.length > 1) {
+      if (setGroupCutTarget(workers, tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    } else if (workers.length === 1) {
+      if (setCutTarget(workers[0], tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    }
     return;
   }
+
+  if (actionMode === 'mineTarget' && selected.length) {
+    const tile = screenToTile(clientX, clientY);
+    const workers = selected.filter(u => u.unitType === 'worker');
+    if (workers.length > 1) {
+      if (setGroupMineTarget(workers, tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    } else if (workers.length === 1) {
+      if (setMineTarget(workers[0], tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    }
+    return;
+  }
+
+  const u = primary;
   if (actionMode === 'buildBaseTarget' && u) {
     const tile = screenToTile(clientX, clientY);
     if (setBuildTarget(u, tile.x, tile.y, 'base')) { actionMode = null; updateUI(); draw(); }
@@ -132,11 +163,6 @@ function handleTap(clientX, clientY) {
   if (actionMode === 'buildArmoryTarget' && u) {
     const tile = screenToTile(clientX, clientY);
     if (setBuildTarget(u, tile.x, tile.y, 'armory')) { actionMode = null; updateUI(); draw(); }
-    return;
-  }
-  if (actionMode === 'mineTarget' && u) {
-    const tile = screenToTile(clientX, clientY);
-    if (setMineTarget(u, tile.x, tile.y)) { actionMode = null; updateUI(); draw(); }
     return;
   }
   if (actionMode === 'tunnelStart' && u) {
@@ -170,6 +196,7 @@ function handleTap(clientX, clientY) {
     selectedArmory = null;
     selectedUnitId = null;
     selectedUnitIds = [];
+    fullSelectionIds = [];
     actionMode = null;
     updateUI(); draw(); return;
   }
@@ -180,6 +207,7 @@ function handleTap(clientX, clientY) {
       selectedBase = null;
       selectedUnitId = null;
       selectedUnitIds = [];
+      fullSelectionIds = [];
       actionMode = null;
       updateUI(); draw(); return;
     }
@@ -203,7 +231,6 @@ canvas.addEventListener('pointerdown', e => {
   boxSelectStart = boxSelectCurrent = null;
   clearLongPressTimer();
 
-  // Long-press only when camera is locked (select mode)
   if (!cameraPanEnabled) {
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
@@ -218,7 +245,6 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
   if (!isDragging) return;
 
-  // Box select drag (camera locked)
   if (boxSelectActive) {
     boxSelectCurrent = { x: e.clientX, y: e.clientY };
     draw();
@@ -230,7 +256,6 @@ canvas.addEventListener('pointermove', e => {
     ? Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y)
     : 0;
 
-  // Cancel long-press if finger moves too far before it fires
   if (longPressTimer && movedFromStart > LONG_PRESS_MOVE_TOL) {
     clearLongPressTimer();
   }
@@ -241,9 +266,8 @@ canvas.addEventListener('pointermove', e => {
     lastX = e.clientX; lastY = e.clientY;
     draw();
   } else {
-    // Locked: small moves don't pan; once long-press fires, box handles it
     lastX = e.clientX; lastY = e.clientY;
-    if (movedFromStart > 3) didPan = true; // suppress accidental tap after drag attempt
+    if (movedFromStart > 3) didPan = true;
   }
 });
 
@@ -321,7 +345,6 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => { pointers.delete(e.pointerId); if (pointers.size < 2) lastPinchDist = 0; });
 canvas.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); if (pointers.size < 2) lastPinchDist = 0; });
 
-// Init indicator once DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', updateCameraModeIndicator);
 } else {

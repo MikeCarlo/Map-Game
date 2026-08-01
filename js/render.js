@@ -13,7 +13,6 @@ function drawJetPulses() {
   if (!jetPulses || !jetPulses.length) return;
   for (const p of jetPulses) {
     const t = Math.min(1, p.age / p.maxAge);
-    // Ease-out expand
     const expand = 1 - Math.pow(1 - t, 2);
     const maxR = (p.radius + 1.2) * TILE * zoom;
     const minR = TILE * zoom * 0.4;
@@ -22,14 +21,12 @@ function drawJetPulses() {
     const cx = camX + p.x * TILE * zoom;
     const cy = camY + p.y * TILE * zoom;
 
-    // Outer glow ring
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(0, 229, 255, ${alpha * 0.9})`;
     ctx.lineWidth = Math.max(1.5, 2.5 * zoom * (1 - t * 0.5));
     ctx.stroke();
 
-    // Second trailing ring (slightly behind)
     if (t > 0.12) {
       const t2 = Math.max(0, t - 0.12);
       const expand2 = 1 - Math.pow(1 - t2, 2);
@@ -41,7 +38,6 @@ function drawJetPulses() {
       ctx.stroke();
     }
 
-    // Bright core flash at start
     if (t < 0.35) {
       const coreA = (1 - t / 0.35) * 0.55;
       const coreR = TILE * zoom * (0.6 + t * 1.2);
@@ -101,6 +97,15 @@ function draw() {
     ctx.strokeRect(Math.floor(sx), Math.floor(sy), Math.ceil(TILE * zoom), Math.ceil(TILE * zoom));
   }
 
+  if (selectedArmory) {
+    const sx = camX + selectedArmory.x * TILE * zoom;
+    const sy = camY + selectedArmory.y * TILE * zoom;
+    const size = ARMORY_SIZE * TILE * zoom;
+    ctx.strokeStyle = '#FF8A80';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
+  }
+
   const selU = getSelectedUnit();
   if (selU && selU.tunnelStart && (actionMode === 'tunnelEnd' || selU.tunneling)) {
     const sx = camX + selU.tunnelStart.x * TILE * zoom;
@@ -130,9 +135,20 @@ function draw() {
       ctx.strokeStyle = '#FFEE55'; ctx.lineWidth = 2.5; ctx.stroke();
     }
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#E53935'; ctx.fill();
-    ctx.beginPath(); ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
+    // Workers = red, soldiers = steel blue
+    ctx.fillStyle = u.unitType === 'soldier' ? '#37474F' : '#E53935';
+    ctx.fill();
+    if (u.unitType === 'soldier') {
+      // Small shield accent
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+      ctx.strokeStyle = '#90A4AE';
+      ctx.lineWidth = Math.max(1, zoom);
+      ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
+    }
     if (u.carryingWood) {
       const wr = Math.max(3, 2.5 * zoom);
       ctx.fillStyle = '#A1887F';

@@ -23,13 +23,11 @@ function gameLoop(now) {
   if (updateJets(dt)) needDraw = true;
 
   for (const u of units) {
-    // Never run cut timer while already carrying wood
     if (u.harvesting && u.harvestTimer > 0 && !u.carryingWood) {
       u.harvestTimer -= dt;
       if (u.harvestTimer <= 0) finishCurrentTree(u);
       needDraw = true;
     }
-    // Never run mine timer while already carrying virelium
     if (u.mining && u.mineTimer > 0 && !u.carryingVirelium) {
       u.mineTimer -= dt;
       if (u.mineTimer <= 0) finishMine(u);
@@ -146,12 +144,24 @@ document.getElementById('btnTrain').addEventListener('click', () => {
   if (!selectedBase) return;
   trainUnitAtBase(selectedBase.x, selectedBase.y);
 });
+document.getElementById('btnUpgrade').addEventListener('click', () => {
+  if (!playerBase) return;
+  if (!upgradeBase()) {
+    const info = document.getElementById('info');
+    if (info) info.textContent = 'No clear space to expand the base (need a free 3×3)';
+  }
+});
 document.getElementById('btnCancelBase').addEventListener('click', () => {
   selectedBase = null; updateUI(); draw();
 });
 
 window.addEventListener('resize', resize);
-map = generateMap();
-units = [spawnUnitAtRandom()];
-resize();
-setTimeout(() => document.getElementById('btnResetView').click(), 50);
+
+// Start with a placed 3×3 base and one worker
+(function initGame() {
+  const { baseSpot } = generateMap();
+  units = [spawnWorkerBesideBase(baseSpot)];
+  resize();
+  setTimeout(() => document.getElementById('btnResetView').click(), 50);
+  updateUI();
+})();

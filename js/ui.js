@@ -7,6 +7,13 @@ function resourceNote(u) {
     parts.push(`Virelium: ${u && u.carryingVirelium ? '1 carried, ' : ''}${vireliumInBase} base`);
   return parts.length ? '  |  ' + parts.join(' · ') : '';
 }
+
+function hideAllBars() {
+  document.getElementById('mapActions').style.display = 'none';
+  document.getElementById('unitActions').style.display = 'none';
+  document.getElementById('baseActions').style.display = 'none';
+}
+
 function updateUI() {
   const mapA = document.getElementById('mapActions');
   const unitA = document.getElementById('unitActions');
@@ -27,15 +34,13 @@ function updateUI() {
   const u = getSelectedUnit();
   const note = resourceNote(u);
 
+  hideAllBars();
+
   if (selectedBase) {
-    mapA.style.display = 'none';
-    unitA.style.display = 'none';
     baseA.style.display = 'flex';
     info.textContent = 'Base selected — Train a new character' + note;
   } else if (u) {
-    mapA.style.display = 'none';
-    unitA.style.display = 'flex';
-    baseA.style.display = 'none';
+    unitA.style.display = 'grid';
     if (actionMode === 'moveTarget') {
       info.textContent = 'Tap a location to move there';
       btnMove.textContent = '✕ Move'; btnMove.classList.add('active');
@@ -77,8 +82,6 @@ function updateUI() {
     }
   } else {
     mapA.style.display = 'flex';
-    unitA.style.display = 'none';
-    baseA.style.display = 'none';
     info.textContent = 'Tap a red dot or purple base to select' + note;
   }
 }

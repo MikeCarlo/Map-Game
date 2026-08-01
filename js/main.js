@@ -80,6 +80,9 @@ function gameLoop(now) {
 
   if (separateIdleUnits()) needDraw = true;
 
+  // Pulse selection rings
+  if (selectedUnitIds.length || selectedUnitId != null) needDraw = true;
+
   if (needDraw) draw();
   requestAnimationFrame(gameLoop);
 }
@@ -108,10 +111,30 @@ document.getElementById('btnSoldierMove').addEventListener('click', () => {
 });
 document.getElementById('btnGroupMove').addEventListener('click', () => {
   const list = getSelectedUnits();
-  if (list.length < 2) return;
+  if (list.length < 1) return;
   if (actionMode === 'moveTarget') actionMode = null;
   else {
     actionMode = 'moveTarget';
+    for (const u of list) clearUnitOrders(u);
+  }
+  updateUI(); draw();
+});
+document.getElementById('btnGroupCut').addEventListener('click', () => {
+  const list = getSelectedUnits().filter(u => u.unitType === 'worker');
+  if (!list.length) return;
+  if (actionMode === 'cutTarget') actionMode = null;
+  else {
+    actionMode = 'cutTarget';
+    for (const u of list) clearUnitOrders(u);
+  }
+  updateUI(); draw();
+});
+document.getElementById('btnGroupMine').addEventListener('click', () => {
+  const list = getSelectedUnits().filter(u => u.unitType === 'worker');
+  if (!list.length) return;
+  if (actionMode === 'mineTarget') actionMode = null;
+  else {
+    actionMode = 'mineTarget';
     for (const u of list) clearUnitOrders(u);
   }
   updateUI(); draw();
@@ -176,6 +199,16 @@ document.getElementById('btnGroupCancel').addEventListener('click', () => {
   clearSelection();
   updateUI(); draw();
 });
+
+function onFilterChip(filter) {
+  selectionFilter = filter;
+  applySelectionFilter();
+  actionMode = null;
+  updateUI(); draw();
+}
+document.getElementById('filterAll').addEventListener('click', () => onFilterChip('all'));
+document.getElementById('filterWorkers').addEventListener('click', () => onFilterChip('worker'));
+document.getElementById('filterSoldiers').addEventListener('click', () => onFilterChip('soldier'));
 
 document.getElementById('btnTrain').addEventListener('click', () => {
   if (!selectedBase) return;

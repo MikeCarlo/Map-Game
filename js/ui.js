@@ -10,19 +10,21 @@ function resourceNote(u) {
 
 function workerCapNote() {
   if (!playerBase) return '';
-  return `Workers ${units.length} / ${playerBase.maxWorkers}`;
+  return `Workers ${countWorkers()} / ${playerBase.maxWorkers}`;
+}
+
+function soldierCapNote() {
+  const max = maxSoldiers();
+  if (max <= 0) return 'Soldiers 0 / 0';
+  return `Soldiers ${countSoldiers()} / ${max}`;
 }
 
 function hideAllBars() {
-  document.getElementById('mapActions').style.display = 'none';
-  document.getElementById('unitActions').style.display = 'none';
-  document.getElementById('baseActions').style.display = 'none';
+  ['mapActions', 'unitActions', 'soldierActions', 'buildMenu', 'baseActions', 'armoryActions']
+    .forEach(id => { document.getElementById(id).style.display = 'none'; });
 }
 
 function updateUI() {
-  const mapA = document.getElementById('mapActions');
-  const unitA = document.getElementById('unitActions');
-  const baseA = document.getElementById('baseActions');
   const info = document.getElementById('info');
   const btnMove = document.getElementById('btnMove');
   const btnCut = document.getElementById('btnCut');
@@ -31,29 +33,69 @@ function updateUI() {
   const btnBuild = document.getElementById('btnBuild');
   const btnTrain = document.getElementById('btnTrain');
   const btnUpgrade = document.getElementById('btnUpgrade');
+  const btnTrainSoldier = document.getElementById('btnTrainSoldier');
+  const btnSoldierMove = document.getElementById('btnSoldierMove');
 
   btnMove.textContent = 'Move'; btnMove.classList.remove('active');
   btnCut.textContent = 'Cut'; btnCut.classList.remove('active');
   btnMine.textContent = 'Mine'; btnMine.classList.remove('active');
   btnTunnel.textContent = 'Tunnel'; btnTunnel.classList.remove('active');
   btnBuild.textContent = 'Build'; btnBuild.classList.remove('active');
+  if (btnSoldierMove) {
+    btnSoldierMove.textContent = 'Move';
+    btnSoldierMove.classList.remove('active');
+  }
 
   const u = getSelectedUnit();
   const note = resourceNote(u);
 
   hideAllBars();
 
+  // Nested build menu (worker chose Build)
+  if (actionMode === 'buildMenu' && u && u.unitType === 'worker') {
+    document.getElementById('buildMenu').style.display = 'flex';
+    info.textContent = 'Build: choose Base or Armory';
+    return;
+  }
+
+  if (selectedArmory) {
+    document.getElementById('armoryActions').style.display = 'flex';
+    const maxS = maxSoldiers();
+    const curS = countSoldiers();
+    const atCap = curS >= maxS;
+    btnTrainSoldier.textContent = atCap ? `Train Soldier (full)` : `Train Soldier (${curS}/${maxS})`;
+    btnTrainSoldier.disabled = atCap || armories.length === 0;
+    info.textContent = `Armory — ${soldierCapNote()}${note}`;
+    return;
+  }
+
   if (selectedBase) {
-    baseA.style.display = 'flex';
+    document.getElementById('baseActions').style.display = 'flex';
     const maxW = playerBase ? playerBase.maxWorkers : 3;
     const level = playerBase ? playerBase.level : 1;
-    const atCap = units.length >= maxW;
-    btnTrain.textContent = atCap ? `Train (full)` : `Train (${units.length}/${maxW})`;
+    const workers = countWorkers();
+    const atCap = workers >= maxW;
+    btnTrain.textContent = atCap ? `Train (full)` : `Train (${workers}/${maxW})`;
     btnTrain.disabled = atCap;
     btnUpgrade.textContent = `Upgrade (Lv ${level} → ${level + 1})`;
     info.textContent = `Base Lv ${level} — ${workerCapNote()}${note}`;
-  } else if (u) {
-    unitA.style.display = 'grid';
+    return;
+  }
+
+  if (u && u.unitType === 'soldier') {
+    document.getElementById('soldierActions').style.display = 'flex';
+    if (actionMode === 'moveTarget') {
+      info.textContent = 'Tap a location to move the soldier';
+      btnSoldierMove.textContent = '✕ Move';
+      btnSoldierMove.classList.add('active');
+    } else {
+      info.textContent = 'Soldier selected — Move to position (attack/defend coming soon)';
+    }
+    return;
+  }
+
+  if (u) {
+    document.getElementById('unitActions').style.display = 'grid';
     if (actionMode === 'moveTarget') {
       info.textContent = 'Tap a location to move there';
       btnMove.textContent = '✕ Move'; btnMove.classList.add('active');
@@ -69,9 +111,12 @@ function updateUI() {
     } else if (actionMode === 'tunnelEnd') {
       info.textContent = 'Tunnel: tap END point (path will be carved through rock)';
       btnTunnel.textContent = '✕ Tunnel'; btnTunnel.classList.add('active');
-    } else if (actionMode === 'buildTarget') {
+    } else if (actionMode === 'buildBaseTarget') {
       info.textContent = 'Tap a clear 3×3 spot to expand the base (+3 workers)';
-      btnBuild.textContent = '✕ Build'; btnBuild.classList.add('active');
+      btnBuild.textContent = '✕ Base'; btnBuild.classList.add('active');
+    } else if (actionMode === 'buildArmoryTarget') {
+      info.textContent = 'Tap a clear 2×2 spot to build an Armory (+5 soldiers)';
+      btnBuild.textContent = '✕ Armory'; btnBuild.classList.add('active');
     } else if (u.harvesting) {
       if (u.returningToBase && u.carryingWood)
         info.textContent = 'Carrying wood → returning to base…' + note;
@@ -89,13 +134,17 @@ function updateUI() {
     } else if (u.tunneling) {
       info.textContent = 'Tunneling through the mountain…';
     } else if (u.building) {
-      info.textContent = 'Expanding base…';
+      info.textContent = u.buildKind === 'armory' ? 'Building armory…' : 'Expanding base…';
     } else {
-      info.textContent = 'Character selected — choose an action' + note;
+      info.textContent = 'Worker selected — choose an action' + note;
     }
-  } else {
-    mapA.style.display = 'flex';
-    const cap = playerBase ? ` — ${workerCapNote()}` : '';
-    info.textContent = 'Tap a red dot or purple base to select' + cap + note;
+    return;
   }
+
+  document.getElementById('mapActions').style.display = 'flex';
+  const parts = [];
+  if (playerBase) parts.push(workerCapNote());
+  if (armories.length) parts.push(soldierCapNote());
+  const cap = parts.length ? ' — ' + parts.join(' · ') : '';
+  info.textContent = 'Tap a unit, base, or armory to select' + cap + note;
 }

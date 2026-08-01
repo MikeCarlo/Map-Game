@@ -14,15 +14,16 @@ let pointerDownPos = null, didPan = false;
 let units = [];
 let nextUnitId = 1;
 let selectedUnitId = null;
-let selectedBase = null; // { x, y } tile of selected base
+let selectedBase = null;   // { x, y }
+let selectedArmory = null; // { x, y } origin of armory
 let actionMode = null;
 let woodInBase = 0;
 let vireliumInBase = 0;
 let claimedTrees = new Map();
 let claimedMinerals = new Map();
 
-// Player base: starts level 1 (one 3×3), max 3 workers. Each upgrade +1 segment, +3 workers.
 let playerBase = null; // { level, maxWorkers, segments: [{ x, y }] }
+let armories = [];     // { x, y } origin of each 2×2 armory
 
 function makePlayerBase(originX, originY) {
   return {
@@ -30,6 +31,26 @@ function makePlayerBase(originX, originY) {
     maxWorkers: WORKERS_PER_BASE_LEVEL,
     segments: [{ x: originX, y: originY }]
   };
+}
+
+function countWorkers() {
+  return units.filter(u => u.unitType === 'worker').length;
+}
+function countSoldiers() {
+  return units.filter(u => u.unitType === 'soldier').length;
+}
+function soldiersAtArmory(ax, ay) {
+  // Soldiers are global-capped per armory count for now: each armory allows +5 total capacity
+  return countSoldiers();
+}
+function maxSoldiers() {
+  return armories.length * SOLDIERS_PER_ARMORY;
+}
+function findArmoryAt(tx, ty) {
+  for (const a of armories) {
+    if (tx >= a.x && tx < a.x + ARMORY_SIZE && ty >= a.y && ty < a.y + ARMORY_SIZE) return a;
+  }
+  return null;
 }
 
 function tileKey(x, y) { return x + ',' + y; }
@@ -56,16 +77,17 @@ function releaseAllClaimsForUnit(unitId) {
   for (const [k, id] of [...claimedMinerals]) if (id === unitId) claimedMinerals.delete(k);
 }
 
-function makeUnit(x, y) {
+function makeUnit(x, y, unitType = 'worker') {
   return {
     id: nextUnitId++, x, y,
+    unitType, // 'worker' | 'soldier'
     path: [], pathIndex: 0, goalX: null, goalY: null,
     harvesting: false, harvestTimer: 0, harvestTX: null, harvestTY: null,
     preferTreeX: null, preferTreeY: null,
     carryingWood: false, returningToBase: false,
     mining: false, mineTimer: 0, mineTX: null, mineTY: null,
     carryingVirelium: false, returningMineral: false,
-    building: false, buildTX: null, buildTY: null,
+    building: false, buildKind: null, buildTX: null, buildTY: null,
     tunneling: false,
     tunnelStart: null,
     tunnelEnd: null,
@@ -87,7 +109,7 @@ function clearUnitOrders(u) {
   u.returningToBase = false; u.carryingWood = false;
   u.mining = false; u.mineTimer = 0; u.mineTX = u.mineTY = null;
   u.returningMineral = false; u.carryingVirelium = false;
-  u.building = false; u.buildTX = u.buildTY = null;
+  u.building = false; u.buildKind = null; u.buildTX = u.buildTY = null;
   u.tunneling = false; u.tunnelStart = null; u.tunnelEnd = null; u.tunnelCarvePath = null;
   u.carveTimer = 0; u.carveTileX = u.carveTileY = null;
 }

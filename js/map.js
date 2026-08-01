@@ -308,7 +308,6 @@ function updateJets(dt) {
   return changed;
 }
 
-/** Clear a 3×3 (and padding) of trees/stumps/minerals so the starter base can sit cleanly. */
 function clearAreaForBase(m, dens, minerals, ax, ay) {
   for (let dy = -1; dy < BASE_SEGMENT_SIZE + 1; dy++) {
     for (let dx = -1; dx < BASE_SEGMENT_SIZE + 1; dx++) {
@@ -324,7 +323,6 @@ function clearAreaForBase(m, dens, minerals, ax, ay) {
 }
 
 function findStarterBaseSpot(m) {
-  // Prefer near map center
   const cx0 = Math.floor(MAP_W / 2) - 1;
   const cy0 = Math.floor(MAP_H / 2) - 1;
   for (let r = 0; r < 40; r++) {
@@ -359,15 +357,15 @@ function spawnWorkerBesideBase(spot) {
   const dirs = [[-1,1],[3,1],[1,-1],[1,3],[-1,0],[3,0],[0,-1],[0,3],[1,1]];
   for (const [dx, dy] of dirs) {
     const x = spot.x + dx, y = spot.y + dy;
-    if (isWalkableTile(x, y)) return makeUnit(x + 0.5, y + 0.5);
+    if (isWalkableTile(x, y)) return makeUnit(x + 0.5, y + 0.5, 'worker');
   }
   for (let r = 1; r <= 6; r++)
     for (let dy = -r; dy <= r + BASE_SEGMENT_SIZE; dy++)
       for (let dx = -r; dx <= r + BASE_SEGMENT_SIZE; dx++) {
         const x = spot.x + dx, y = spot.y + dy;
-        if (isWalkableTile(x, y)) return makeUnit(x + 0.5, y + 0.5);
+        if (isWalkableTile(x, y)) return makeUnit(x + 0.5, y + 0.5, 'worker');
       }
-  return makeUnit(spot.x + 1.5, spot.y - 0.5);
+  return makeUnit(spot.x + 1.5, spot.y - 0.5, 'worker');
 }
 
 function generateMap() {
@@ -383,6 +381,7 @@ function generateMap() {
   mineralMap = minerals;
   treeDensity = dens;
   map = m;
+  armories = [];
   recomputeRockElevation();
   return { map: m, baseSpot };
 }
@@ -390,9 +389,10 @@ function generateMap() {
 function newMap() {
   const { baseSpot } = generateMap();
   units = [spawnWorkerBesideBase(baseSpot)];
-  selectedUnitId = null; selectedBase = null; actionMode = null;
+  selectedUnitId = null; selectedBase = null; selectedArmory = null; actionMode = null;
   woodInBase = 0; vireliumInBase = 0;
   claimedTrees.clear(); claimedMinerals.clear();
   jetPulses = [];
+  armories = [];
   updateUI(); draw();
 }

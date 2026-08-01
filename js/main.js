@@ -8,6 +8,12 @@ function tryMoveUnit(u, dx, dy) {
   return moved;
 }
 
+function uiBottomInset() {
+  const ui = document.getElementById('ui');
+  if (!ui) return 120;
+  return Math.max(100, window.innerHeight - ui.getBoundingClientRect().top + 8);
+}
+
 let lastFrameTime = performance.now();
 function gameLoop(now) {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
@@ -90,9 +96,10 @@ requestAnimationFrame(gameLoop);
 
 document.getElementById('btnNew').addEventListener('click', newMap);
 document.getElementById('btnResetView').addEventListener('click', () => {
-  zoom = Math.min((window.innerWidth * 0.9) / (MAP_W * TILE), (window.innerHeight * 0.75) / (MAP_H * TILE));
+  const bottom = uiBottomInset();
+  zoom = Math.min((window.innerWidth * 0.9) / (MAP_W * TILE), ((window.innerHeight - bottom) * 0.95) / (MAP_H * TILE));
   camX = (window.innerWidth - MAP_W * TILE * zoom) / 2;
-  camY = (window.innerHeight - MAP_H * TILE * zoom - 56) / 2;
+  camY = (window.innerHeight - bottom - MAP_H * TILE * zoom) / 2;
   draw();
 });
 document.getElementById('btnMove').addEventListener('click', () => {

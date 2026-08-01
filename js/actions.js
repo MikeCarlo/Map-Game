@@ -1,4 +1,4 @@
-// actions.js — unit actions: move, cut, mine, build, tunnel, train
+// actions.js — unit actions: move, cut, mine, build, tunnel, train, upgrade
 function setMoveTarget(u, worldX, worldY) {
   let gx = Math.floor(worldX), gy = Math.floor(worldY);
   if (!isWalkableTile(gx, gy)) {
@@ -36,7 +36,6 @@ function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
   return null;
 }
 
-/** Walkable tile next to a tree the worker can stand on while cutting. */
 function findStandTileNearTree(tx, ty, fromX, fromY) {
   const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
   let best = null, bestD = Infinity;
@@ -103,8 +102,6 @@ function nudgeToWalkable(u) {
 }
 
 // ── Cut (wood) ──
-// Strict loop: go to tree → cut 1 density → carry wood to base → deposit → repeat.
-// Never cut again until wood is deposited at a real base tile.
 function setCutTarget(u, worldX, worldY) {
   if (u.carryingWood || u.carryingVirelium) return false;
   let gx = Math.floor(worldX), gy = Math.floor(worldY);
@@ -153,28 +150,22 @@ function returnToBaseWithWood(u) {
 
   const deposit = findNearestBaseDeposit(Math.floor(u.x), Math.floor(u.y));
   if (!deposit) {
-    // No base: keep carrying, idle
     u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
     updateUI(); return;
   }
 
-  // Already beside base? Deposit on next arrival handler — still set a 1-step path so arrival fires
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
   let tiles = aStar(sx, sy, deposit.x, deposit.y, false) || pathToClosest(sx, sy, deposit.x, deposit.y);
-  if (!tiles || !tiles.length) {
-    tiles = [{ x: sx, y: sy }];
-  }
+  if (!tiles || !tiles.length) tiles = [{ x: sx, y: sy }];
   applyPath(u, tiles);
   updateUI();
 }
 
 function depositWoodAndContinue(u) {
-  // Hard gate: only deposit when physically beside a base
   if (!isBesideBase(u.x, u.y)) {
     returnToBaseWithWood(u);
     return;
   }
-
   if (u.carryingWood) {
     u.carryingWood = false;
     woodInBase++;
@@ -183,12 +174,8 @@ function depositWoodAndContinue(u) {
   u.harvestTimer = 0;
   u.harvestTX = u.harvestTY = null;
 
-  if (!u.harvesting) {
-    updateUI();
-    return;
-  }
+  if (!u.harvesting) { updateUI(); return; }
 
-  // Prefer the same tree if it still has density left
   let next = null;
   if (u.preferTreeX !== null && u.preferTreeY !== null &&
       inBounds(u.preferTreeX, u.preferTreeY) &&
@@ -208,19 +195,12 @@ function depositWoodAndContinue(u) {
 
 function startHarvestOnArrival(u) {
   if (!u.harvesting) return;
-
-  // Carrying wood: only deposit if beside base; otherwise keep walking home
   if (u.carryingWood) {
     if (isBesideBase(u.x, u.y)) depositWoodAndContinue(u);
     else returnToBaseWithWood(u);
     return;
   }
-
-  // Returning flag without wood should not deposit
-  if (u.returningToBase) {
-    u.returningToBase = false;
-  }
-
+  if (u.returningToBase) u.returningToBase = false;
   if (u.harvestTX === null) return;
 
   const cx = Math.floor(u.x), cy = Math.floor(u.y);
@@ -228,7 +208,6 @@ function startHarvestOnArrival(u) {
   const adjacent = Math.abs(cx - u.harvestTX) <= 1 && Math.abs(cy - u.harvestTY) <= 1;
 
   if (adjacent && treeStillThere) {
-    // Start exactly one harvest tick
     if (u.harvestTimer <= 0) u.harvestTimer = HARVEST_TIME;
   } else {
     releaseTree(u.harvestTX, u.harvestTY, u.id);
@@ -241,7 +220,6 @@ function startHarvestOnArrival(u) {
 }
 
 function finishCurrentTree(u) {
-  // Already carrying → do not cut again; go home
   if (u.carryingWood) {
     u.harvestTimer = 0;
     u.harvestTX = u.harvestTY = null;
@@ -261,7 +239,7 @@ function finishCurrentTree(u) {
     }
     let d = treeDensity[hy][hx];
     if (d <= 0) d = 1;
-    d -= 1; // exactly ONE density unit
+    d -= 1;
     treeDensity[hy][hx] = Math.max(0, d);
     u.carryingWood = true;
     tookWood = true;
@@ -272,7 +250,6 @@ function finishCurrentTree(u) {
       releaseTree(hx, hy, u.id);
       u.preferTreeX = u.preferTreeY = null;
     } else {
-      // Remember this tree for after deposit
       u.preferTreeX = hx;
       u.preferTreeY = hy;
       claimTree(hx, hy, u.id);
@@ -282,13 +259,8 @@ function finishCurrentTree(u) {
   }
 
   nudgeToWalkable(u);
-
-  // Always return to base after a single cut — never continue cutting while carrying
-  if (tookWood && u.harvesting) {
-    returnToBaseWithWood(u);
-  } else {
-    clearUnitOrders(u);
-  }
+  if (tookWood && u.harvesting) returnToBaseWithWood(u);
+  else clearUnitOrders(u);
   updateUI();
   draw();
 }
@@ -398,9 +370,7 @@ function finishMine(u) {
   if (u.mineTX !== null && u.mineTY !== null && hasMineral(u.mineTX, u.mineTY)) {
     mineralMap[u.mineTY][u.mineTX]--;
     u.carryingVirelium = true;
-    if (mineralMap[u.mineTY][u.mineTX] <= 0) {
-      releaseMineral(u.mineTX, u.mineTY, u.id);
-    }
+    if (mineralMap[u.mineTY][u.mineTX] <= 0) releaseMineral(u.mineTX, u.mineTY, u.id);
   } else if (u.mineTX !== null) {
     releaseMineral(u.mineTX, u.mineTY, u.id);
   }
@@ -410,6 +380,7 @@ function finishMine(u) {
   updateUI();
 }
 
+// ── Base: 3×3 segments, train, upgrade ──
 function canPlaceBase(ax, ay) {
   for (const { dx, dy } of BASE_FOOTPRINT) {
     const x = ax + dx, y = ay + dy;
@@ -419,12 +390,69 @@ function canPlaceBase(ax, ay) {
   }
   return true;
 }
-function placeBase(ax, ay) {
+
+function placeBaseTiles(ax, ay) {
   for (const { dx, dy } of BASE_FOOTPRINT) {
     const x = ax + dx, y = ay + dy;
     if (inBounds(x, y)) map[y][x] = TILE_BASE;
   }
 }
+
+function registerBaseSegment(ax, ay) {
+  if (!playerBase) {
+    playerBase = makePlayerBase(ax, ay);
+  } else {
+    playerBase.segments.push({ x: ax, y: ay });
+    playerBase.level += 1;
+    playerBase.maxWorkers += WORKERS_PER_BASE_LEVEL;
+  }
+  placeBaseTiles(ax, ay);
+}
+
+/** Find a clear 3×3 adjacent to existing base segments (prefer right, down, left, up). */
+function findUpgradeSpot() {
+  if (!playerBase || !playerBase.segments.length) return null;
+  const offsets = [
+    [BASE_SEGMENT_SIZE, 0],
+    [0, BASE_SEGMENT_SIZE],
+    [-BASE_SEGMENT_SIZE, 0],
+    [0, -BASE_SEGMENT_SIZE],
+    [BASE_SEGMENT_SIZE, BASE_SEGMENT_SIZE],
+    [BASE_SEGMENT_SIZE, -BASE_SEGMENT_SIZE],
+    [-BASE_SEGMENT_SIZE, BASE_SEGMENT_SIZE],
+    [-BASE_SEGMENT_SIZE, -BASE_SEGMENT_SIZE]
+  ];
+  for (const seg of playerBase.segments) {
+    for (const [ox, oy] of offsets) {
+      const ax = seg.x + ox, ay = seg.y + oy;
+      if (canPlaceBase(ax, ay)) return { x: ax, y: ay };
+    }
+  }
+  // Wider search around each segment
+  for (const seg of playerBase.segments) {
+    for (let r = 1; r <= 6; r++) {
+      for (let dy = -r * BASE_SEGMENT_SIZE; dy <= r * BASE_SEGMENT_SIZE; dy += BASE_SEGMENT_SIZE) {
+        for (let dx = -r * BASE_SEGMENT_SIZE; dx <= r * BASE_SEGMENT_SIZE; dx += BASE_SEGMENT_SIZE) {
+          if (!dx && !dy) continue;
+          const ax = seg.x + dx, ay = seg.y + dy;
+          if (canPlaceBase(ax, ay)) return { x: ax, y: ay };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function upgradeBase() {
+  if (!playerBase) return false;
+  const spot = findUpgradeSpot();
+  if (!spot) return false;
+  registerBaseSegment(spot.x, spot.y);
+  updateUI();
+  draw();
+  return true;
+}
+
 function setBuildTarget(u, worldX, worldY) {
   const ax = Math.floor(worldX), ay = Math.floor(worldY);
   if (!canPlaceBase(ax, ay)) return false;
@@ -435,9 +463,10 @@ function setBuildTarget(u, worldX, worldY) {
   u.harvesting = false; u.carryingWood = false; u.returningToBase = false;
   return applyPath(u, tiles);
 }
+
 function finishBuild(u) {
   if (u.buildTX !== null && u.buildTY !== null && canPlaceBase(u.buildTX, u.buildTY)) {
-    placeBase(u.buildTX, u.buildTY);
+    registerBaseSegment(u.buildTX, u.buildTY);
     if (!isWalkable(u.x, u.y)) {
       const cx = Math.floor(u.x), cy = Math.floor(u.y);
       outer: for (let r = 1; r <= 4; r++)
@@ -533,9 +562,7 @@ function startTunnelCarve(u) {
   u.goalY = u.path[u.path.length - 1].y;
   u.tunnelCarvePath = null;
   const cx = Math.floor(u.x), cy = Math.floor(u.y);
-  if (inBounds(cx, cy) && map[cy][cx] === TILE_ROCK) {
-    beginCarveTile(u, cx, cy);
-  }
+  if (inBounds(cx, cy) && map[cy][cx] === TILE_ROCK) beginCarveTile(u, cx, cy);
   updateUI();
 }
 
@@ -550,32 +577,27 @@ function finishTunnel(u) {
 }
 
 function trainUnitAtBase(bx, by) {
+  if (!playerBase) return false;
+  if (units.length >= playerBase.maxWorkers) return false;
+
   const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1],[2,0],[-2,0],[0,2],[0,-2]];
+  const trySpawn = (nx, ny) => {
+    if (!isWalkableTile(nx, ny)) return false;
+    const u = makeUnit(nx + 0.5, ny + 0.5);
+    units.push(u);
+    selectedUnitId = u.id;
+    selectedBase = null;
+    actionMode = null;
+    updateUI(); draw();
+    return true;
+  };
+
   for (const [dx, dy] of dirs) {
-    const nx = bx + dx, ny = by + dy;
-    if (isWalkableTile(nx, ny)) {
-      const u = makeUnit(nx + 0.5, ny + 0.5);
-      units.push(u);
-      selectedBase = null;
-      selectedUnitId = u.id;
-      actionMode = null;
-      updateUI(); draw();
-      return true;
-    }
+    if (trySpawn(bx + dx, by + dy)) return true;
   }
   for (let r = 1; r <= 6; r++)
     for (let dy = -r; dy <= r; dy++)
-      for (let dx = -r; dx <= r; dx++) {
-        const nx = bx + dx, ny = by + dy;
-        if (isWalkableTile(nx, ny)) {
-          const u = makeUnit(nx + 0.5, ny + 0.5);
-          units.push(u);
-          selectedBase = null;
-          selectedUnitId = u.id;
-          actionMode = null;
-          updateUI(); draw();
-          return true;
-        }
-      }
+      for (let dx = -r; dx <= r; dx++)
+        if (trySpawn(bx + dx, by + dy)) return true;
   return false;
 }

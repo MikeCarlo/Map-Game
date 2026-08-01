@@ -17,7 +17,6 @@ function uiPanelTop() {
   return ui.getBoundingClientRect().top;
 }
 function handleTap(clientX, clientY) {
-  // Don't treat taps on the bottom action panel as map taps
   if (clientY >= uiPanelTop() - 4) return;
   const u = getSelectedUnit();
 
@@ -31,9 +30,14 @@ function handleTap(clientX, clientY) {
     if (setCutTarget(u, tile.x, tile.y)) { actionMode = null; updateUI(); draw(); }
     return;
   }
-  if (actionMode === 'buildTarget' && u) {
+  if (actionMode === 'buildBaseTarget' && u) {
     const tile = screenToTile(clientX, clientY);
-    if (setBuildTarget(u, tile.x, tile.y)) { actionMode = null; updateUI(); draw(); }
+    if (setBuildTarget(u, tile.x, tile.y, 'base')) { actionMode = null; updateUI(); draw(); }
+    return;
+  }
+  if (actionMode === 'buildArmoryTarget' && u) {
+    const tile = screenToTile(clientX, clientY);
+    if (setBuildTarget(u, tile.x, tile.y, 'armory')) { actionMode = null; updateUI(); draw(); }
     return;
   }
   if (actionMode === 'mineTarget' && u) {
@@ -60,7 +64,10 @@ function handleTap(clientX, clientY) {
 
   const hit = unitAtScreen(clientX, clientY);
   if (hit) {
-    selectedUnitId = hit.id; selectedBase = null; actionMode = null;
+    selectedUnitId = hit.id;
+    selectedBase = null;
+    selectedArmory = null;
+    actionMode = null;
     updateUI(); draw(); return;
   }
 
@@ -68,11 +75,21 @@ function handleTap(clientX, clientY) {
   const tx = Math.floor(tile.x), ty = Math.floor(tile.y);
   if (inBounds(tx, ty) && map[ty][tx] === TILE_BASE) {
     selectedBase = { x: tx, y: ty };
+    selectedArmory = null;
     selectedUnitId = null; actionMode = null;
     updateUI(); draw(); return;
   }
+  if (inBounds(tx, ty) && map[ty][tx] === TILE_ARMORY) {
+    const a = findArmoryAt(tx, ty);
+    if (a) {
+      selectedArmory = { x: a.x, y: a.y };
+      selectedBase = null;
+      selectedUnitId = null; actionMode = null;
+      updateUI(); draw(); return;
+    }
+  }
 
-  selectedUnitId = null; selectedBase = null; actionMode = null;
+  selectedUnitId = null; selectedBase = null; selectedArmory = null; actionMode = null;
   updateUI(); draw();
 }
 

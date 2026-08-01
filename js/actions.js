@@ -35,6 +35,34 @@ function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
   }
   return null;
 }
+
+/** Walkable tile next to a tree the worker can stand on while cutting. */
+function findStandTileNearTree(tx, ty, fromX, fromY) {
+  const dirs = [[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  let best = null, bestD = Infinity;
+  for (const [dx, dy] of dirs) {
+    const nx = tx + dx, ny = ty + dy;
+    if (!isWalkableTile(nx, ny)) continue;
+    // Prefer tiles adjacent to the tree (or the tree's own tile if somehow walkable)
+    if (dx !== 0 || dy !== 0) {
+      // must be adjacent to tree
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) continue;
+    }
+    const d = Math.hypot(nx - fromX, ny - fromY);
+    if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
+  }
+  // If nothing adjacent is walkable, search a bit farther for a walkable approach
+  if (!best) {
+    for (let r = 1; r <= 3 && !best; r++)
+      for (let dy = -r; dy <= r && !best; dy++)
+        for (let dx = -r; dx <= r && !best; dx++) {
+          const nx = tx + dx, ny = ty + dy;
+          if (isWalkableTile(nx, ny)) best = { x: nx, y: ny };
+        }
+  }
+  return best;
+}
+
 function findNearestBaseDeposit(fromX, fromY, maxRange = 80) {
   const key = (x, y) => y * MAP_W + x;
   const queue = [{ x: fromX, y: fromY, d: 0 }], visited = new Set([key(fromX, fromY)]);
@@ -57,7 +85,21 @@ function findNearestBaseDeposit(fromX, fromY, maxRange = 80) {
   return null;
 }
 
-// ── Cut (wood) — mirrors mine pattern ──
+function nudgeToWalkable(u) {
+  const cx = Math.floor(u.x), cy = Math.floor(u.y);
+  if (isWalkableTile(cx, cy)) return;
+  for (let r = 1; r <= 4; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        const nx = cx + dx, ny = cy + dy;
+        if (isWalkableTile(nx, ny)) {
+          u.x = nx + 0.5; u.y = ny + 0.5;
+          return;
+        }
+      }
+}
+
+// ── Cut (wood) — same loop as mine: go → harvest → carry to base → repeat ──
 function setCutTarget(u, worldX, worldY) {
   if (u.carryingWood || u.carryingVirelium) return false;
   let gx = Math.floor(worldX), gy = Math.floor(worldY);
@@ -77,22 +119,31 @@ function setCutTarget(u, worldX, worldY) {
       gx = nearest.x; gy = nearest.y;
     }
   }
+
+  const stand = findStandTileNearTree(gx, gy, Math.floor(u.x), Math.floor(u.y));
+  if (!stand) return false;
+
   releaseAllClaimsForUnit(u.id);
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
-  // allowTreeGoal=true because TREE tiles are not walkable
-  let tiles = aStar(sx, sy, gx, gy, true) || pathToClosest(sx, sy, gx, gy);
+  // Path to a walkable tile next to the tree (not onto the tree)
+  let tiles = aStar(sx, sy, stand.x, stand.y, false) || pathToClosest(sx, sy, stand.x, stand.y);
   if (!tiles || !tiles.length) return false;
+
   claimTree(gx, gy, u.id);
   u.harvesting = true; u.returningToBase = false;
   u.mining = false; u.carryingVirelium = false;
   u.harvestTX = gx; u.harvestTY = gy; u.harvestTimer = 0;
   return applyPath(u, tiles);
 }
+
 function returnToBaseWithWood(u) {
+  nudgeToWalkable(u);
   const deposit = findNearestBaseDeposit(Math.floor(u.x), Math.floor(u.y));
   if (!deposit) {
-    u.harvesting = false; u.returningToBase = false;
-    u.harvestTX = u.harvestTY = null; u.path = []; u.pathIndex = 0;
+    // No base yet — keep the wood, stop the loop
+    u.returningToBase = false;
+    u.harvestTX = u.harvestTY = null;
+    u.path = []; u.pathIndex = 0;
     updateUI(); return;
   }
   u.returningToBase = true; u.harvestTX = u.harvestTY = null;
@@ -100,6 +151,7 @@ function returnToBaseWithWood(u) {
   let tiles = aStar(sx, sy, deposit.x, deposit.y, false) || pathToClosest(sx, sy, deposit.x, deposit.y);
   applyPath(u, tiles); updateUI();
 }
+
 function depositWoodAndContinue(u) {
   if (u.carryingWood) { u.carryingWood = false; woodInBase++; }
   u.returningToBase = false;
@@ -110,6 +162,7 @@ function depositWoodAndContinue(u) {
   }
   updateUI();
 }
+
 function startHarvestOnArrival(u) {
   if (!u.harvesting) return;
   if (u.returningToBase && u.carryingWood) { depositWoodAndContinue(u); return; }
@@ -128,6 +181,7 @@ function startHarvestOnArrival(u) {
     else { clearUnitOrders(u); updateUI(); }
   }
 }
+
 function finishCurrentTree(u) {
   if (u.harvestTX !== null && u.harvestTY !== null &&
       inBounds(u.harvestTX, u.harvestTY) && map[u.harvestTY][u.harvestTX] === TILE_TREE) {
@@ -147,6 +201,7 @@ function finishCurrentTree(u) {
     releaseTree(u.harvestTX, u.harvestTY, u.id);
   }
   u.harvestTimer = 0; u.harvestTX = u.harvestTY = null;
+  nudgeToWalkable(u);
   if (u.carryingWood && u.harvesting) returnToBaseWithWood(u);
   else clearUnitOrders(u);
   updateUI();
@@ -206,7 +261,7 @@ function setMineTarget(u, worldX, worldY) {
 function returnToBaseWithMineral(u) {
   const deposit = findNearestBaseDeposit(Math.floor(u.x), Math.floor(u.y));
   if (!deposit) {
-    u.mining = false; u.returningMineral = false;
+    u.returningMineral = false;
     u.mineTX = u.mineTY = null; u.path = []; u.pathIndex = 0;
     updateUI(); return;
   }

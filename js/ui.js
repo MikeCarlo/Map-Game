@@ -20,7 +20,7 @@ function soldierCapNote() {
 }
 
 function hideAllBars() {
-  ['mapActions', 'unitActions', 'soldierActions', 'buildMenu', 'baseActions', 'armoryActions', 'groupActions']
+  ['mapActions', 'unitActions', 'soldierActions', 'buildMenu', 'baseActions', 'armoryActions', 'groupActions', 'selectionFilters']
     .forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
@@ -31,9 +31,42 @@ function selectionSummary(list) {
   const w = list.filter(u => u.unitType === 'worker').length;
   const s = list.filter(u => u.unitType === 'soldier').length;
   const parts = [];
-  if (w) parts.push(`${w} worker${w > 1 ? 's' : ''}`);
-  if (s) parts.push(`${s} soldier${s > 1 ? 's' : ''}`);
+  if (w) parts.push(`${w} Worker${w > 1 ? 's' : ''}`);
+  if (s) parts.push(`${s} Soldier${s > 1 ? 's' : ''}`);
   return parts.join(' + ') || '0 units';
+}
+
+function updateFilterChips(list) {
+  const bar = document.getElementById('selectionFilters');
+  if (!bar) return;
+  const full = fullSelectionIds.length
+    ? units.filter(u => fullSelectionIds.includes(u.id))
+    : list;
+  const hasW = full.some(u => u.unitType === 'worker');
+  const hasS = full.some(u => u.unitType === 'soldier');
+  const show = list.length > 1 || (full.length > 1 && (hasW && hasS));
+  if (!show && !(hasW && hasS && full.length > 1)) {
+    bar.style.display = 'none';
+    return;
+  }
+  if (!(hasW && hasS)) {
+    // Still show count chips for pure groups as read-only style? hide if not mixed
+    bar.style.display = hasW && hasS ? 'flex' : 'none';
+    if (!(hasW && hasS)) return;
+  }
+  bar.style.display = 'flex';
+  const all = document.getElementById('filterAll');
+  const fw = document.getElementById('filterWorkers');
+  const fs = document.getElementById('filterSoldiers');
+  [all, fw, fs].forEach(b => b && b.classList.remove('active'));
+  if (selectionFilter === 'worker' && fw) fw.classList.add('active');
+  else if (selectionFilter === 'soldier' && fs) fs.classList.add('active');
+  else if (all) all.classList.add('active');
+  const wc = full.filter(u => u.unitType === 'worker').length;
+  const sc = full.filter(u => u.unitType === 'soldier').length;
+  if (fw) { fw.style.display = hasW ? '' : 'none'; fw.textContent = `Workers (${wc})`; }
+  if (fs) { fs.style.display = hasS ? '' : 'none'; fs.textContent = `Soldiers (${sc})`; }
+  if (all) all.textContent = `All (${full.length})`;
 }
 
 function updateUI() {
@@ -48,31 +81,26 @@ function updateUI() {
   const btnTrainSoldier = document.getElementById('btnTrainSoldier');
   const btnSoldierMove = document.getElementById('btnSoldierMove');
   const btnGroupMove = document.getElementById('btnGroupMove');
+  const btnGroupCut = document.getElementById('btnGroupCut');
+  const btnGroupMine = document.getElementById('btnGroupMine');
 
   btnMove.textContent = 'Move'; btnMove.classList.remove('active');
   btnCut.textContent = 'Cut'; btnCut.classList.remove('active');
   btnMine.textContent = 'Mine'; btnMine.classList.remove('active');
   btnTunnel.textContent = 'Tunnel'; btnTunnel.classList.remove('active');
   btnBuild.textContent = 'Build'; btnBuild.classList.remove('active');
-  if (btnSoldierMove) {
-    btnSoldierMove.textContent = 'Move';
-    btnSoldierMove.classList.remove('active');
-  }
-  if (btnGroupMove) {
-    btnGroupMove.textContent = 'Move';
-    btnGroupMove.classList.remove('active');
-  }
+  if (btnSoldierMove) { btnSoldierMove.textContent = 'Move'; btnSoldierMove.classList.remove('active'); }
+  if (btnGroupMove) { btnGroupMove.textContent = 'Move'; btnGroupMove.classList.remove('active'); }
+  if (btnGroupCut) { btnGroupCut.textContent = 'Cut'; btnGroupCut.classList.remove('active'); }
+  if (btnGroupMine) { btnGroupMine.textContent = 'Mine'; btnGroupMine.classList.remove('active'); }
 
   const selected = getSelectedUnits();
   const u = selected.length === 1 ? selected[0] : null;
   const note = resourceNote(u || selected[0]);
-  const modeHint = cameraPanEnabled
-    ? ''
-    : ' [SELECT mode — long-press drag to box select]';
+  const modeHint = cameraPanEnabled ? '' : ' [SELECT]';
 
   hideAllBars();
 
-  // Nested build menu (worker chose Build)
   if (actionMode === 'buildMenu' && u && u.unitType === 'worker') {
     document.getElementById('buildMenu').style.display = 'flex';
     info.textContent = 'Build: choose Base or Armory';
@@ -103,17 +131,31 @@ function updateUI() {
     return;
   }
 
-  // Multi-select group
+  // Multi-select / group
   if (selected.length > 1) {
+    const comp = selectionComposition(selected);
     document.getElementById('groupActions').style.display = 'flex';
+    updateFilterChips(selected);
+
+    // Show Cut/Mine only when selection is all workers
+    if (btnGroupCut) btnGroupCut.style.display = comp.allWorkers ? '' : 'none';
+    if (btnGroupMine) btnGroupMine.style.display = comp.allWorkers ? '' : 'none';
+
     if (actionMode === 'moveTarget') {
-      info.textContent = `Tap a location to move ${selectionSummary(selected)}`;
-      if (btnGroupMove) {
-        btnGroupMove.textContent = '✕ Move';
-        btnGroupMove.classList.add('active');
-      }
+      info.textContent = `Move ${selectionSummary(selected)} — tap destination`;
+      if (btnGroupMove) { btnGroupMove.textContent = '✕ Move'; btnGroupMove.classList.add('active'); }
+    } else if (actionMode === 'cutTarget') {
+      info.textContent = `Group Cut — tap a forest area (${selectionSummary(selected)})`;
+      if (btnGroupCut) { btnGroupCut.textContent = '✕ Cut'; btnGroupCut.classList.add('active'); }
+    } else if (actionMode === 'mineTarget') {
+      info.textContent = `Group Mine — tap Virelium area (${selectionSummary(selected)})`;
+      if (btnGroupMine) { btnGroupMine.textContent = '✕ Mine'; btnGroupMine.classList.add('active'); }
+    } else if (comp.allWorkers) {
+      info.textContent = `${selectionSummary(selected)} — Move / Cut / Mine${modeHint}`;
+    } else if (comp.allSoldiers) {
+      info.textContent = `${selectionSummary(selected)} — Move${modeHint}`;
     } else {
-      info.textContent = `Selected ${selectionSummary(selected)} — Move or Cancel${modeHint}`;
+      info.textContent = `Mixed ${selectionSummary(selected)} — Move only (or filter type)${modeHint}`;
     }
     return;
   }
@@ -125,7 +167,7 @@ function updateUI() {
       btnSoldierMove.textContent = '✕ Move';
       btnSoldierMove.classList.add('active');
     } else {
-      info.textContent = 'Soldier selected — Move to position (attack/defend coming soon)' + modeHint;
+      info.textContent = 'Soldier — Move (double-tap for nearby soldiers)' + modeHint;
     }
     return;
   }
@@ -172,7 +214,7 @@ function updateUI() {
     } else if (u.building) {
       info.textContent = u.buildKind === 'armory' ? 'Building armory…' : 'Expanding base…';
     } else {
-      info.textContent = 'Worker selected — choose an action' + note + modeHint;
+      info.textContent = 'Worker — actions (double-tap for nearby workers)' + note + modeHint;
     }
     return;
   }
@@ -183,7 +225,7 @@ function updateUI() {
   if (armories.length) parts.push(soldierCapNote());
   const cap = parts.length ? ' — ' + parts.join(' · ') : '';
   const panHint = cameraPanEnabled
-    ? 'Double-tap to lock camera for multi-select'
-    : 'SELECT mode: long-press + drag to box select · Double-tap to unlock pan';
-  info.textContent = 'Tap a unit, base, or armory · ' + panHint + cap + note;
+    ? 'Double-tap empty = lock camera · Double-tap unit = select similar'
+    : 'SELECT: long-press drag box · Double-tap empty = unlock pan';
+  info.textContent = panHint + cap + note;
 }

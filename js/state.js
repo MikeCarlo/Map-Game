@@ -50,6 +50,7 @@ function makeUnit(x, y) {
     id: nextUnitId++, x, y,
     path: [], pathIndex: 0, goalX: null, goalY: null,
     harvesting: false, harvestTimer: 0, harvestTX: null, harvestTY: null,
+    preferTreeX: null, preferTreeY: null,
     carryingWood: false, returningToBase: false,
     mining: false, mineTimer: 0, mineTX: null, mineTY: null,
     carryingVirelium: false, returningMineral: false,
@@ -71,6 +72,7 @@ function clearUnitOrders(u) {
   releaseAllClaimsForUnit(u.id);
   u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
   u.harvesting = false; u.harvestTimer = 0; u.harvestTX = u.harvestTY = null;
+  u.preferTreeX = u.preferTreeY = null;
   u.returningToBase = false; u.carryingWood = false;
   u.mining = false; u.mineTimer = 0; u.mineTX = u.mineTY = null;
   u.returningMineral = false; u.carryingVirelium = false;

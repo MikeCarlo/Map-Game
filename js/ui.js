@@ -44,15 +44,9 @@ function updateFilterChips(list) {
     : list;
   const hasW = full.some(u => u.unitType === 'worker');
   const hasS = full.some(u => u.unitType === 'soldier');
-  const show = list.length > 1 || (full.length > 1 && (hasW && hasS));
-  if (!show && !(hasW && hasS && full.length > 1)) {
+  if (!(hasW && hasS)) {
     bar.style.display = 'none';
     return;
-  }
-  if (!(hasW && hasS)) {
-    // Still show count chips for pure groups as read-only style? hide if not mixed
-    bar.style.display = hasW && hasS ? 'flex' : 'none';
-    if (!(hasW && hasS)) return;
   }
   bar.style.display = 'flex';
   const all = document.getElementById('filterAll');
@@ -80,9 +74,11 @@ function updateUI() {
   const btnUpgrade = document.getElementById('btnUpgrade');
   const btnTrainSoldier = document.getElementById('btnTrainSoldier');
   const btnSoldierMove = document.getElementById('btnSoldierMove');
+  const btnSoldierAttack = document.getElementById('btnSoldierAttack');
   const btnGroupMove = document.getElementById('btnGroupMove');
   const btnGroupCut = document.getElementById('btnGroupCut');
   const btnGroupMine = document.getElementById('btnGroupMine');
+  const btnGroupAttack = document.getElementById('btnGroupAttack');
 
   btnMove.textContent = 'Move'; btnMove.classList.remove('active');
   btnCut.textContent = 'Cut'; btnCut.classList.remove('active');
@@ -90,9 +86,11 @@ function updateUI() {
   btnTunnel.textContent = 'Tunnel'; btnTunnel.classList.remove('active');
   btnBuild.textContent = 'Build'; btnBuild.classList.remove('active');
   if (btnSoldierMove) { btnSoldierMove.textContent = 'Move'; btnSoldierMove.classList.remove('active'); }
+  if (btnSoldierAttack) { btnSoldierAttack.textContent = 'Attack'; btnSoldierAttack.classList.remove('active'); }
   if (btnGroupMove) { btnGroupMove.textContent = 'Move'; btnGroupMove.classList.remove('active'); }
   if (btnGroupCut) { btnGroupCut.textContent = 'Cut'; btnGroupCut.classList.remove('active'); }
   if (btnGroupMine) { btnGroupMine.textContent = 'Mine'; btnGroupMine.classList.remove('active'); }
+  if (btnGroupAttack) { btnGroupAttack.textContent = 'Attack'; btnGroupAttack.classList.remove('active'); }
 
   const selected = getSelectedUnits();
   const u = selected.length === 1 ? selected[0] : null;
@@ -104,6 +102,14 @@ function updateUI() {
   if (actionMode === 'buildMenu' && u && u.unitType === 'worker') {
     document.getElementById('buildMenu').style.display = 'flex';
     info.textContent = 'Build: choose Base or Armory';
+    return;
+  }
+
+  if (selectedHut) {
+    const h = findHutAt(selectedHut.x, selectedHut.y);
+    document.getElementById('mapActions').style.display = 'flex';
+    if (h) info.textContent = `Enemy Hut — HP ${Math.max(0, Math.ceil(h.hp))}/${h.maxHp} · Enemies ${countEnemies()}`;
+    else info.textContent = 'Enemy hut destroyed';
     return;
   }
 
@@ -131,19 +137,21 @@ function updateUI() {
     return;
   }
 
-  // Multi-select / group
   if (selected.length > 1) {
     const comp = selectionComposition(selected);
     document.getElementById('groupActions').style.display = 'flex';
     updateFilterChips(selected);
 
-    // Show Cut/Mine only when selection is all workers
     if (btnGroupCut) btnGroupCut.style.display = comp.allWorkers ? '' : 'none';
     if (btnGroupMine) btnGroupMine.style.display = comp.allWorkers ? '' : 'none';
+    if (btnGroupAttack) btnGroupAttack.style.display = comp.allSoldiers ? '' : 'none';
 
     if (actionMode === 'moveTarget') {
       info.textContent = `Move ${selectionSummary(selected)} — tap destination`;
       if (btnGroupMove) { btnGroupMove.textContent = '✕ Move'; btnGroupMove.classList.add('active'); }
+    } else if (actionMode === 'attackTarget') {
+      info.textContent = `Attack — tap an enemy or hut (${selectionSummary(selected)})`;
+      if (btnGroupAttack) { btnGroupAttack.textContent = '✕ Attack'; btnGroupAttack.classList.add('active'); }
     } else if (actionMode === 'cutTarget') {
       info.textContent = `Group Cut — tap a forest area (${selectionSummary(selected)})`;
       if (btnGroupCut) { btnGroupCut.textContent = '✕ Cut'; btnGroupCut.classList.add('active'); }
@@ -153,7 +161,7 @@ function updateUI() {
     } else if (comp.allWorkers) {
       info.textContent = `${selectionSummary(selected)} — Move / Cut / Mine${modeHint}`;
     } else if (comp.allSoldiers) {
-      info.textContent = `${selectionSummary(selected)} — Move${modeHint}`;
+      info.textContent = `${selectionSummary(selected)} — Move / Attack${modeHint}`;
     } else {
       info.textContent = `Mixed ${selectionSummary(selected)} — Move only (or filter type)${modeHint}`;
     }
@@ -162,12 +170,18 @@ function updateUI() {
 
   if (u && u.unitType === 'soldier') {
     document.getElementById('soldierActions').style.display = 'flex';
+    const hp = u.hp != null ? ` HP ${Math.ceil(u.hp)}/${u.maxHp}` : '';
     if (actionMode === 'moveTarget') {
       info.textContent = 'Tap a location to move the soldier';
       btnSoldierMove.textContent = '✕ Move';
       btnSoldierMove.classList.add('active');
+    } else if (actionMode === 'attackTarget') {
+      info.textContent = 'Tap an enemy (green) or hut to attack';
+      if (btnSoldierAttack) { btnSoldierAttack.textContent = '✕ Attack'; btnSoldierAttack.classList.add('active'); }
+    } else if (u.attacking) {
+      info.textContent = 'Soldier attacking…' + hp;
     } else {
-      info.textContent = 'Soldier — Move (double-tap for nearby soldiers)' + modeHint;
+      info.textContent = 'Soldier — Move / Attack' + hp + modeHint;
     }
     return;
   }
@@ -223,6 +237,8 @@ function updateUI() {
   const parts = [];
   if (playerBase) parts.push(workerCapNote());
   if (armories.length) parts.push(soldierCapNote());
+  if (huts.length) parts.push(`Hut HP ${Math.ceil(huts[0].hp)}/${huts[0].maxHp}`);
+  if (countEnemies()) parts.push(`Enemies ${countEnemies()}`);
   const cap = parts.length ? ' — ' + parts.join(' · ') : '';
   const panHint = cameraPanEnabled
     ? 'Double-tap empty = lock camera · Double-tap unit = select similar'

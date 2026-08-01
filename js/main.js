@@ -21,6 +21,8 @@ function gameLoop(now) {
   let needDraw = false;
 
   if (updateJets(dt)) needDraw = true;
+  if (updateHuts(dt)) needDraw = true;
+  if (updateCombat(dt)) needDraw = true;
 
   for (const u of units) {
     if (u.harvesting && u.harvestTimer > 0 && !u.carryingWood) {
@@ -80,8 +82,7 @@ function gameLoop(now) {
 
   if (separateIdleUnits()) needDraw = true;
 
-  // Pulse selection rings
-  if (selectedUnitIds.length || selectedUnitId != null) needDraw = true;
+  if (selectedUnitIds.length || selectedUnitId != null || huts.length || countEnemies()) needDraw = true;
 
   if (needDraw) draw();
   requestAnimationFrame(gameLoop);
@@ -109,12 +110,28 @@ document.getElementById('btnSoldierMove').addEventListener('click', () => {
   else { actionMode = 'moveTarget'; clearUnitOrders(u); }
   updateUI(); draw();
 });
+document.getElementById('btnSoldierAttack').addEventListener('click', () => {
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'soldier') return;
+  if (actionMode === 'attackTarget') actionMode = null;
+  else { actionMode = 'attackTarget'; clearUnitOrders(u); }
+  updateUI(); draw();
+});
 document.getElementById('btnGroupMove').addEventListener('click', () => {
   const list = getSelectedUnits();
   if (list.length < 1) return;
   if (actionMode === 'moveTarget') actionMode = null;
   else {
     actionMode = 'moveTarget';
+    for (const u of list) clearUnitOrders(u);
+  }
+  updateUI(); draw();
+});
+document.getElementById('btnGroupAttack').addEventListener('click', () => {
+  const list = getSelectedUnits().filter(u => u.unitType === 'soldier');
+  if (!list.length) return;
+  if (actionMode === 'attackTarget') actionMode = null;
+  else {
+    actionMode = 'attackTarget';
     for (const u of list) clearUnitOrders(u);
   }
   updateUI(); draw();

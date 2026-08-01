@@ -23,12 +23,14 @@ function gameLoop(now) {
   if (updateJets(dt)) needDraw = true;
 
   for (const u of units) {
-    if (u.harvesting && u.harvestTimer > 0) {
+    // Never run cut timer while already carrying wood
+    if (u.harvesting && u.harvestTimer > 0 && !u.carryingWood) {
       u.harvestTimer -= dt;
       if (u.harvestTimer <= 0) finishCurrentTree(u);
       needDraw = true;
     }
-    if (u.mining && u.mineTimer > 0) {
+    // Never run mine timer while already carrying virelium
+    if (u.mining && u.mineTimer > 0 && !u.carryingVirelium) {
       u.mineTimer -= dt;
       if (u.mineTimer <= 0) finishMine(u);
       needDraw = true;

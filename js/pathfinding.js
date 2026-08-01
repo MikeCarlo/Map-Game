@@ -1,4 +1,4 @@
-// pathfinding.js — A* and path helpers
+// pathfinding.js — A* and path helpers + idle unit spacing
 const PATH_DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
 function heuristic(ax, ay, bx, by) {
   const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
@@ -96,5 +96,83 @@ function applyPath(u, tiles) {
   if (u.path.length > 1 && Math.hypot(u.path[0].x - u.x, u.path[0].y - u.y) < 0.4) u.pathIndex = 1;
   u.goalX = u.path[u.path.length - 1].x;
   u.goalY = u.path[u.path.length - 1].y;
+  return true;
+}
+
+/** Unit is standing still (not currently walking a path). */
+function isUnitIdle(u) {
+  return !u.path || u.path.length === 0 || u.pathIndex >= u.path.length;
+}
+
+/** True if another idle unit is standing on tile (tx, ty). Moving units do not block. */
+function isTileOccupiedByIdleUnit(tx, ty, excludeId) {
+  for (const u of units) {
+    if (u.id === excludeId) continue;
+    if (!isUnitIdle(u)) continue;
+    if (Math.floor(u.x) === tx && Math.floor(u.y) === ty) return true;
+  }
+  return false;
+}
+
+/** Nearest walkable tile not occupied by another idle unit. */
+function findFreeStandTile(nearX, nearY, excludeId, maxR = 6) {
+  const cx = Math.floor(nearX), cy = Math.floor(nearY);
+  if (isWalkableTile(cx, cy) && !isTileOccupiedByIdleUnit(cx, cy, excludeId)) {
+    return { x: cx, y: cy };
+  }
+  for (let r = 1; r <= maxR; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+        const nx = cx + dx, ny = cy + dy;
+        if (!isWalkableTile(nx, ny)) continue;
+        if (isTileOccupiedByIdleUnit(nx, ny, excludeId)) continue;
+        return { x: nx, y: ny };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * If an idle unit shares a tile with another idle unit, nudge the later one
+ * (higher id) onto a free adjacent tile. Returns true if any unit moved.
+ */
+function separateIdleUnits() {
+  let moved = false;
+  // Build occupancy of idle units (first occupant keeps the tile)
+  const claim = new Map(); // "x,y" -> unitId
+  const idle = units.filter(isUnitIdle);
+  // Stable order by id so behavior is deterministic
+  idle.sort((a, b) => a.id - b.id);
+
+  for (const u of idle) {
+    const tx = Math.floor(u.x), ty = Math.floor(u.y);
+    const k = tx + ',' + ty;
+    if (!claim.has(k)) {
+      claim.set(k, u.id);
+      continue;
+    }
+    // Conflict: find free tile and stand there
+    const free = findFreeStandTile(u.x, u.y, u.id);
+    if (free) {
+      u.x = free.x + 0.5;
+      u.y = free.y + 0.5;
+      claim.set(free.x + ',' + free.y, u.id);
+      moved = true;
+    }
+  }
+  return moved;
+}
+
+/** Call after a unit finishes a path so it doesn't stop on someone. */
+function resolveIdleStand(u) {
+  if (!u || !isUnitIdle(u)) return false;
+  const tx = Math.floor(u.x), ty = Math.floor(u.y);
+  if (!isTileOccupiedByIdleUnit(tx, ty, u.id)) return false;
+  const free = findFreeStandTile(u.x, u.y, u.id);
+  if (!free) return false;
+  u.x = free.x + 0.5;
+  u.y = free.y + 0.5;
   return true;
 }

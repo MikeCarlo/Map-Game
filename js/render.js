@@ -80,6 +80,35 @@ function drawBoxSelect() {
   }
 }
 
+/** Grey dotted/dashed frame around the viewport while camera is locked (SELECT mode). */
+function drawSelectModeFrame() {
+  if (cameraPanEnabled) return;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const ui = document.getElementById('ui');
+  const bottom = ui ? Math.max(0, h - ui.getBoundingClientRect().top) : 64;
+  const inset = 3;
+  const x = inset;
+  const y = inset;
+  const fw = w - inset * 2;
+  const fh = h - bottom - inset * 2;
+  if (fw <= 0 || fh <= 0) return;
+
+  ctx.save();
+  ctx.lineWidth = 2;
+  // Outer dashed grey
+  ctx.strokeStyle = 'rgba(160, 160, 160, 0.85)';
+  ctx.setLineDash([10, 6]);
+  ctx.strokeRect(x + 0.5, y + 0.5, fw - 1, fh - 1);
+  // Inner dotted grey for a double perimeter feel
+  ctx.strokeStyle = 'rgba(120, 120, 120, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 4]);
+  ctx.strokeRect(x + 4.5, y + 4.5, fw - 9, fh - 9);
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 function draw() {
   if (!map) return;
   const w = window.innerWidth, h = window.innerHeight;
@@ -202,4 +231,5 @@ function draw() {
   }
 
   drawBoxSelect();
+  drawSelectModeFrame();
 }

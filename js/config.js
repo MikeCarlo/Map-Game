@@ -1,10 +1,11 @@
 // config.js - tiles, colors, constants
 const MAP_W = 128, MAP_H = 128, TILE = 8;
-const TILE_DIRT = 0, TILE_ROCK = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_STUMP = 4, TILE_BASE = 5, TILE_JET = 6, TILE_TUNNEL = 7, TILE_ARMORY = 8;
+const TILE_DIRT = 0, TILE_ROCK = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_STUMP = 4, TILE_BASE = 5, TILE_JET = 6, TILE_TUNNEL = 7, TILE_ARMORY = 8, TILE_HUT = 9;
 const COLORS = {
   [TILE_DIRT]: '#8B5A2B', [TILE_ROCK]: '#6B6B6B', [TILE_WATER]: '#1E6BB8',
   [TILE_TREE]: '#2D8B2D', [TILE_STUMP]: '#5C4033', [TILE_BASE]: '#9C27B0',
-  [TILE_JET]: '#1A1A2E', [TILE_TUNNEL]: '#4A3728', [TILE_ARMORY]: '#B71C1C'
+  [TILE_JET]: '#1A1A2E', [TILE_TUNNEL]: '#4A3728', [TILE_ARMORY]: '#B71C1C',
+  [TILE_HUT]: '#5D4037'
 };
 const ROCK_SHADES = [
   '#3A3A3A', '#4A4A4A', '#5A5A5A', '#6B6B6B',
@@ -20,6 +21,10 @@ const BASE_SHADES = [
 const ARMORY_SHADES = [
   '#7F0000', '#B71C1C', '#C62828', '#D32F2F',
   '#E53935', '#8B0000', '#A52A2A', '#6D1B1B'
+];
+const HUT_SHADES = [
+  '#3E2723', '#4E342E', '#5D4037', '#6D4C41',
+  '#795548', '#8D6E63', '#4E342E', '#3E2723'
 ];
 const VIRELIUM_SHADES = [
   '#004D40', '#00695C', '#00796B', '#00897B', '#009688',
@@ -41,6 +46,10 @@ function tileColor(tx, ty, tile) {
   if (tile === TILE_ARMORY) {
     const h = ((tx * 73856093) ^ (ty * 19349663) ^ ((tx + ty) * 31)) >>> 0;
     return ARMORY_SHADES[h % ARMORY_SHADES.length];
+  }
+  if (tile === TILE_HUT) {
+    const h = ((tx * 50331653) ^ (ty * 33416511) ^ ((tx + ty) * 13)) >>> 0;
+    return HUT_SHADES[h % HUT_SHADES.length];
   }
   if (tile === TILE_JET) return '#0D0D1A';
   if (tile === TILE_TUNNEL) return '#4A3728';
@@ -67,6 +76,28 @@ const ARMORY_FOOTPRINT = [];
       ARMORY_FOOTPRINT.push({ dx, dy });
 })();
 
+// Enemy hut: 2×2
+const HUT_SIZE = 2;
+const HUT_FOOTPRINT = [];
+(function () {
+  for (let dy = 0; dy < HUT_SIZE; dy++)
+    for (let dx = 0; dx < HUT_SIZE; dx++)
+      HUT_FOOTPRINT.push({ dx, dy });
+})();
+const HUT_MAX_HP = 40;
+const HUT_SPAWN_INTERVAL_MIN = 18;
+const HUT_SPAWN_INTERVAL_MAX = 32;
+const HUT_MAX_ALIVE_ENEMIES = 6;
+const ENEMY_MAX_HP = 12;
+const SOLDIER_MAX_HP = 20;
+const SOLDIER_ATTACK_DAMAGE = 4;
+const SOLDIER_ATTACK_INTERVAL = 0.85;
+const SOLDIER_ATTACK_RANGE = 1.35; // tiles (adjacent + a bit)
+const ENEMY_MOVE_SPEED = 3.2;
+const ENEMY_AGGRO_RANGE = 18;
+const ENEMY_ATTACK_DAMAGE = 2;
+const ENEMY_ATTACK_INTERVAL = 1.1;
+
 const MOVE_SPEED = 5.5;
 const SOLDIER_MOVE_SPEED = 6.5;
 const HARVEST_TIME = 0.7;
@@ -84,6 +115,7 @@ const JET_MINERAL_CAP = 10;
 const JET_PULSE_DURATION = 1.4;
 
 function getUnitSpeed(u) {
+  if (u.unitType === 'enemy') return ENEMY_MOVE_SPEED;
   if (u.tunneling && u.tunnelCarvePath === null && u.path && u.path.length) {
     return TUNNEL_MOVE_SPEED;
   }

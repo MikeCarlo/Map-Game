@@ -65,6 +65,7 @@ function drawBoxSelect() {
 
   let count = 0;
   for (const u of units) {
+    if (u.unitType === 'enemy') continue;
     const sx = camX + u.x * TILE * zoom;
     const sy = camY + u.y * TILE * zoom;
     if (sx >= x && sx <= x + w && sy >= y && sy <= y + h) count++;
@@ -80,7 +81,6 @@ function drawBoxSelect() {
   }
 }
 
-/** Grey dotted/dashed frame around the viewport while camera is locked (SELECT mode). */
 function drawSelectModeFrame() {
   if (cameraPanEnabled) return;
   const w = window.innerWidth;
@@ -96,17 +96,28 @@ function drawSelectModeFrame() {
 
   ctx.save();
   ctx.lineWidth = 2;
-  // Outer dashed grey
   ctx.strokeStyle = 'rgba(160, 160, 160, 0.85)';
   ctx.setLineDash([10, 6]);
   ctx.strokeRect(x + 0.5, y + 0.5, fw - 1, fh - 1);
-  // Inner dotted grey for a double perimeter feel
   ctx.strokeStyle = 'rgba(120, 120, 120, 0.55)';
   ctx.lineWidth = 1;
   ctx.setLineDash([2, 4]);
   ctx.strokeRect(x + 4.5, y + 4.5, fw - 9, fh - 9);
   ctx.setLineDash([]);
   ctx.restore();
+}
+
+function drawHpBar(cx, cy, radius, hp, maxHp) {
+  if (hp == null || maxHp == null || hp >= maxHp) return;
+  const bw = Math.max(12, radius * 2.2);
+  const bh = Math.max(3, 2.5 * zoom);
+  const bx = cx - bw / 2;
+  const by = cy - radius - bh - 3;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(bx, by, bw, bh);
+  const pct = Math.max(0, hp / maxHp);
+  ctx.fillStyle = pct > 0.5 ? '#66BB6A' : pct > 0.25 ? '#FFA726' : '#EF5350';
+  ctx.fillRect(bx, by, bw * pct, bh);
 }
 
 function draw() {
@@ -149,6 +160,19 @@ function draw() {
 
   drawJetPulses();
 
+  // Hut HP bars above hut origin
+  for (const hut of huts) {
+    const hx = camX + (hut.x + HUT_SIZE / 2) * TILE * zoom;
+    const hy = camY + hut.y * TILE * zoom;
+    const bw = HUT_SIZE * TILE * zoom * 0.9;
+    const bh = Math.max(3, 3 * zoom);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(hx - bw / 2, hy - 6, bw, bh);
+    const pct = Math.max(0, hut.hp / hut.maxHp);
+    ctx.fillStyle = '#EF5350';
+    ctx.fillRect(hx - bw / 2, hy - 6, bw * pct, bh);
+  }
+
   if (selectedBase) {
     const sx = camX + selectedBase.x * TILE * zoom;
     const sy = camY + selectedBase.y * TILE * zoom;
@@ -162,6 +186,15 @@ function draw() {
     const sy = camY + selectedArmory.y * TILE * zoom;
     const size = ARMORY_SIZE * TILE * zoom;
     ctx.strokeStyle = '#FF8A80';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
+  }
+
+  if (selectedHut) {
+    const sx = camX + selectedHut.x * TILE * zoom;
+    const sy = camY + selectedHut.y * TILE * zoom;
+    const size = HUT_SIZE * TILE * zoom;
+    ctx.strokeStyle = '#FF7043';
     ctx.lineWidth = 2.5;
     ctx.strokeRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
   }
@@ -185,7 +218,7 @@ function draw() {
   const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 220);
 
   for (const u of units) {
-    if (u.goalX !== null) {
+    if (u.goalX !== null && u.unitType !== 'enemy') {
       const tx = camX + u.goalX * TILE * zoom, ty = camY + u.goalY * TILE * zoom;
       ctx.beginPath(); ctx.arc(tx, ty, Math.max(4, 3 * zoom), 0, Math.PI * 2);
       ctx.strokeStyle = '#FFEE55'; ctx.lineWidth = 2; ctx.stroke();
@@ -201,7 +234,9 @@ function draw() {
       ctx.lineWidth = 1.5; ctx.stroke();
     }
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = u.unitType === 'soldier' ? '#37474F' : '#E53935';
+    if (u.unitType === 'enemy') ctx.fillStyle = '#43A047';
+    else if (u.unitType === 'soldier') ctx.fillStyle = '#37474F';
+    else ctx.fillStyle = '#E53935';
     ctx.fill();
     if (u.unitType === 'soldier') {
       ctx.beginPath();
@@ -209,10 +244,18 @@ function draw() {
       ctx.strokeStyle = '#90A4AE';
       ctx.lineWidth = Math.max(1, zoom);
       ctx.stroke();
+    } else if (u.unitType === 'enemy') {
+      // fangs / eyes
+      ctx.fillStyle = '#1B5E20';
+      ctx.beginPath();
+      ctx.arc(cx - radius * 0.3, cy - radius * 0.15, radius * 0.22, 0, Math.PI * 2);
+      ctx.arc(cx + radius * 0.3, cy - radius * 0.15, radius * 0.22, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       ctx.beginPath(); ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
     }
+    if (u.hp != null && u.maxHp != null) drawHpBar(cx, cy, radius, u.hp, u.maxHp);
     if (u.carryingWood) {
       const wr = Math.max(3, 2.5 * zoom);
       ctx.fillStyle = '#A1887F';

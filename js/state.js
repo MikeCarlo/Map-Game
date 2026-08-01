@@ -5,8 +5,8 @@ let map = null;
 let mineralMap = null;
 let treeDensity = null;
 let rockElev = null;
-let jets = []; // { x, y, radius, interval, amount, timer }
-let jetPulses = []; // { x, y, radius, amount, age, maxAge }
+let jets = [];
+let jetPulses = [];
 let camX = 0, camY = 0, zoom = 1, dpr = 1;
 let isDragging = false, lastX = 0, lastY = 0, lastPinchDist = 0;
 let pointerDownPos = null, didPan = false;
@@ -14,12 +14,23 @@ let pointerDownPos = null, didPan = false;
 let units = [];
 let nextUnitId = 1;
 let selectedUnitId = null;
-let selectedBase = null;
+let selectedBase = null; // { x, y } tile of selected base
 let actionMode = null;
 let woodInBase = 0;
 let vireliumInBase = 0;
 let claimedTrees = new Map();
 let claimedMinerals = new Map();
+
+// Player base: starts level 1 (one 3×3), max 3 workers. Each upgrade +1 segment, +3 workers.
+let playerBase = null; // { level, maxWorkers, segments: [{ x, y }] }
+
+function makePlayerBase(originX, originY) {
+  return {
+    level: 1,
+    maxWorkers: WORKERS_PER_BASE_LEVEL,
+    segments: [{ x: originX, y: originY }]
+  };
+}
 
 function tileKey(x, y) { return x + ',' + y; }
 function claimTree(x, y, unitId) { claimedTrees.set(tileKey(x, y), unitId); }

@@ -11,8 +11,14 @@ function unitAtScreen(clientX, clientY) {
   }
   return null;
 }
+function uiPanelTop() {
+  const ui = document.getElementById('ui');
+  if (!ui) return window.innerHeight - 120;
+  return ui.getBoundingClientRect().top;
+}
 function handleTap(clientX, clientY) {
-  if (clientY > window.innerHeight - 60) return;
+  // Don't treat taps on the bottom action panel as map taps
+  if (clientY >= uiPanelTop() - 4) return;
   const u = getSelectedUnit();
 
   if (actionMode === 'moveTarget' && u) {

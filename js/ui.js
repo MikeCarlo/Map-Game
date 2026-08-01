@@ -8,6 +8,11 @@ function resourceNote(u) {
   return parts.length ? '  |  ' + parts.join(' · ') : '';
 }
 
+function workerCapNote() {
+  if (!playerBase) return '';
+  return `Workers ${units.length} / ${playerBase.maxWorkers}`;
+}
+
 function hideAllBars() {
   document.getElementById('mapActions').style.display = 'none';
   document.getElementById('unitActions').style.display = 'none';
@@ -24,6 +29,8 @@ function updateUI() {
   const btnMine = document.getElementById('btnMine');
   const btnTunnel = document.getElementById('btnTunnel');
   const btnBuild = document.getElementById('btnBuild');
+  const btnTrain = document.getElementById('btnTrain');
+  const btnUpgrade = document.getElementById('btnUpgrade');
 
   btnMove.textContent = 'Move'; btnMove.classList.remove('active');
   btnCut.textContent = 'Cut'; btnCut.classList.remove('active');
@@ -38,7 +45,13 @@ function updateUI() {
 
   if (selectedBase) {
     baseA.style.display = 'flex';
-    info.textContent = 'Base selected — Train a new character' + note;
+    const maxW = playerBase ? playerBase.maxWorkers : 3;
+    const level = playerBase ? playerBase.level : 1;
+    const atCap = units.length >= maxW;
+    btnTrain.textContent = atCap ? `Train (full)` : `Train (${units.length}/${maxW})`;
+    btnTrain.disabled = atCap;
+    btnUpgrade.textContent = `Upgrade (Lv ${level} → ${level + 1})`;
+    info.textContent = `Base Lv ${level} — ${workerCapNote()}${note}`;
   } else if (u) {
     unitA.style.display = 'grid';
     if (actionMode === 'moveTarget') {
@@ -57,7 +70,7 @@ function updateUI() {
       info.textContent = 'Tunnel: tap END point (path will be carved through rock)';
       btnTunnel.textContent = '✕ Tunnel'; btnTunnel.classList.add('active');
     } else if (actionMode === 'buildTarget') {
-      info.textContent = 'Tap a clear spot for an L-shaped base';
+      info.textContent = 'Tap a clear 3×3 spot to expand the base (+3 workers)';
       btnBuild.textContent = '✕ Build'; btnBuild.classList.add('active');
     } else if (u.harvesting) {
       if (u.returningToBase && u.carryingWood)
@@ -76,12 +89,13 @@ function updateUI() {
     } else if (u.tunneling) {
       info.textContent = 'Tunneling through the mountain…';
     } else if (u.building) {
-      info.textContent = 'Building base…';
+      info.textContent = 'Expanding base…';
     } else {
       info.textContent = 'Character selected — choose an action' + note;
     }
   } else {
     mapA.style.display = 'flex';
-    info.textContent = 'Tap a red dot or purple base to select' + note;
+    const cap = playerBase ? ` — ${workerCapNote()}` : '';
+    info.textContent = 'Tap a red dot or purple base to select' + cap + note;
   }
 }

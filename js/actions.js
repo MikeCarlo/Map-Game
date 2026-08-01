@@ -20,6 +20,49 @@ function setMoveTarget(u, worldX, worldY) {
   return applyPath(u, tiles);
 }
 
+/** Move a group toward a destination, spreading onto free tiles. */
+function setGroupMoveTarget(unitList, worldX, worldY) {
+  if (!unitList || !unitList.length) return false;
+  const cx = Math.floor(worldX), cy = Math.floor(worldY);
+  const reserved = new Set();
+  // Reserve current positions of non-group units so we don't land on them
+  for (const other of units) {
+    if (unitList.some(u => u.id === other.id)) continue;
+    reserved.add(Math.floor(other.x) + ',' + Math.floor(other.y));
+    if (other.goalX != null)
+      reserved.add(Math.floor(other.goalX) + ',' + Math.floor(other.goalY));
+  }
+
+  function takeFreeNear(ox, oy) {
+    for (let r = 0; r <= 10; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (r > 0 && Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          const nx = ox + dx, ny = oy + dy;
+          const k = nx + ',' + ny;
+          if (!isWalkableTile(nx, ny)) continue;
+          if (reserved.has(k)) continue;
+          reserved.add(k);
+          return { x: nx, y: ny };
+        }
+      }
+    }
+    return null;
+  }
+
+  let any = false;
+  for (const u of unitList) {
+    clearUnitOrders(u);
+    const spot = takeFreeNear(cx, cy);
+    if (!spot) continue;
+    const sx = Math.floor(u.x), sy = Math.floor(u.y);
+    if (sx === spot.x && sy === spot.y) continue;
+    const tiles = aStar(sx, sy, spot.x, spot.y, false) || pathToClosest(sx, sy, spot.x, spot.y);
+    if (applyPath(u, tiles)) any = true;
+  }
+  return any;
+}
+
 function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
   const key = (x, y) => y * MAP_W + x;
   const queue = [{ x: fromX, y: fromY, d: 0 }], visited = new Set([key(fromX, fromY)]);
@@ -144,7 +187,6 @@ function returnToBaseWithWood(u) {
   u.harvestTimer = 0; u.harvestTX = u.harvestTY = null; u.returningToBase = true;
   const deposit = findNearestBaseDeposit(Math.floor(u.x), Math.floor(u.y));
   if (!deposit) { u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null; updateUI(); return; }
-  // Prefer a free deposit tile so workers don't stack at the same drop-off
   let gx = deposit.x, gy = deposit.y;
   if (isTileBlockedForStand(gx, gy, u.id)) {
     const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 6);
@@ -262,7 +304,6 @@ function setMineTarget(u, worldX, worldY) {
       gx = nearest.x; gy = nearest.y;
     }
   }
-  // Mining stand tile: mineral tile itself or nearest free adjacent if blocked
   let standX = gx, standY = gy;
   if (isTileBlockedForStand(gx, gy, u.id)) {
     const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 4);
@@ -436,7 +477,6 @@ function finishBuild(u) {
     } else {
       if (canPlaceBase(u.buildTX, u.buildTY)) registerBaseSegment(u.buildTX, u.buildTY);
     }
-    // Step off the new building onto a free tile
     const free = findFreeStandTile(u.x, u.y, u.id, 6);
     if (free) {
       u.x = free.x + 0.5;
@@ -529,7 +569,6 @@ function spawnUnitNear(bx, by, unitType) {
   const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1],[2,0],[-2,0],[0,2],[0,-2]];
   const trySpawn = (nx, ny) => {
     if (!isWalkableTile(nx, ny)) return null;
-    // Never spawn on a tile another unit is on or heading to
     if (isTileBlockedForStand(nx, ny, null)) return null;
     const u = makeUnit(nx + 0.5, ny + 0.5, unitType);
     units.push(u);
@@ -554,9 +593,7 @@ function trainUnitAtBase(bx, by) {
   if (countWorkers() >= playerBase.maxWorkers) return false;
   const u = spawnUnitNear(bx, by, 'worker');
   if (!u) return false;
-  selectedUnitId = u.id;
-  selectedBase = null;
-  selectedArmory = null;
+  setSingleSelection(u.id);
   actionMode = null;
   updateUI(); draw();
   return true;
@@ -567,9 +604,7 @@ function trainSoldierAtArmory(ax, ay) {
   if (countSoldiers() >= maxSoldiers()) return false;
   const u = spawnUnitNear(ax, ay, 'soldier');
   if (!u) return false;
-  selectedUnitId = u.id;
-  selectedArmory = null;
-  selectedBase = null;
+  setSingleSelection(u.id);
   actionMode = null;
   updateUI(); draw();
   return true;

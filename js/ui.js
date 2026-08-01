@@ -20,8 +20,20 @@ function soldierCapNote() {
 }
 
 function hideAllBars() {
-  ['mapActions', 'unitActions', 'soldierActions', 'buildMenu', 'baseActions', 'armoryActions']
-    .forEach(id => { document.getElementById(id).style.display = 'none'; });
+  ['mapActions', 'unitActions', 'soldierActions', 'buildMenu', 'baseActions', 'armoryActions', 'groupActions']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+}
+
+function selectionSummary(list) {
+  const w = list.filter(u => u.unitType === 'worker').length;
+  const s = list.filter(u => u.unitType === 'soldier').length;
+  const parts = [];
+  if (w) parts.push(`${w} worker${w > 1 ? 's' : ''}`);
+  if (s) parts.push(`${s} soldier${s > 1 ? 's' : ''}`);
+  return parts.join(' + ') || '0 units';
 }
 
 function updateUI() {
@@ -35,6 +47,7 @@ function updateUI() {
   const btnUpgrade = document.getElementById('btnUpgrade');
   const btnTrainSoldier = document.getElementById('btnTrainSoldier');
   const btnSoldierMove = document.getElementById('btnSoldierMove');
+  const btnGroupMove = document.getElementById('btnGroupMove');
 
   btnMove.textContent = 'Move'; btnMove.classList.remove('active');
   btnCut.textContent = 'Cut'; btnCut.classList.remove('active');
@@ -45,9 +58,17 @@ function updateUI() {
     btnSoldierMove.textContent = 'Move';
     btnSoldierMove.classList.remove('active');
   }
+  if (btnGroupMove) {
+    btnGroupMove.textContent = 'Move';
+    btnGroupMove.classList.remove('active');
+  }
 
-  const u = getSelectedUnit();
-  const note = resourceNote(u);
+  const selected = getSelectedUnits();
+  const u = selected.length === 1 ? selected[0] : null;
+  const note = resourceNote(u || selected[0]);
+  const modeHint = cameraPanEnabled
+    ? ''
+    : ' [SELECT mode — long-press drag to box select]';
 
   hideAllBars();
 
@@ -82,6 +103,21 @@ function updateUI() {
     return;
   }
 
+  // Multi-select group
+  if (selected.length > 1) {
+    document.getElementById('groupActions').style.display = 'flex';
+    if (actionMode === 'moveTarget') {
+      info.textContent = `Tap a location to move ${selectionSummary(selected)}`;
+      if (btnGroupMove) {
+        btnGroupMove.textContent = '✕ Move';
+        btnGroupMove.classList.add('active');
+      }
+    } else {
+      info.textContent = `Selected ${selectionSummary(selected)} — Move or Cancel${modeHint}`;
+    }
+    return;
+  }
+
   if (u && u.unitType === 'soldier') {
     document.getElementById('soldierActions').style.display = 'flex';
     if (actionMode === 'moveTarget') {
@@ -89,7 +125,7 @@ function updateUI() {
       btnSoldierMove.textContent = '✕ Move';
       btnSoldierMove.classList.add('active');
     } else {
-      info.textContent = 'Soldier selected — Move to position (attack/defend coming soon)';
+      info.textContent = 'Soldier selected — Move to position (attack/defend coming soon)' + modeHint;
     }
     return;
   }
@@ -136,7 +172,7 @@ function updateUI() {
     } else if (u.building) {
       info.textContent = u.buildKind === 'armory' ? 'Building armory…' : 'Expanding base…';
     } else {
-      info.textContent = 'Worker selected — choose an action' + note;
+      info.textContent = 'Worker selected — choose an action' + note + modeHint;
     }
     return;
   }
@@ -146,5 +182,8 @@ function updateUI() {
   if (playerBase) parts.push(workerCapNote());
   if (armories.length) parts.push(soldierCapNote());
   const cap = parts.length ? ' — ' + parts.join(' · ') : '';
-  info.textContent = 'Tap a unit, base, or armory to select' + cap + note;
+  const panHint = cameraPanEnabled
+    ? 'Double-tap to lock camera for multi-select'
+    : 'SELECT mode: long-press + drag to box select · Double-tap to unlock pan';
+  info.textContent = 'Tap a unit, base, or armory · ' + panHint + cap + note;
 }

@@ -6,7 +6,6 @@ html, body {
 }
 #game { display: block; width: 100%; height: 100%; background: #1a1a1a; }
 
-/* Bottom action panel */
 #ui {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -33,7 +32,6 @@ html, body {
   margin: 0 auto;
 }
 
-/* Map / base: single centered row */
 #mapActions,
 #baseActions {
   flex-direction: row;
@@ -43,7 +41,6 @@ html, body {
   gap: 8px;
 }
 
-/* Worker actions: 3-column grid (2 rows) so nothing is cut off */
 #unitActions {
   display: none;
   grid-template-columns: repeat(3, 1fr);
@@ -65,8 +62,12 @@ button {
   white-space: nowrap;
 }
 button:active { background: #555; transform: scale(0.97); }
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
 
-/* Unit action colors */
 #btnMove { background: #2e7d32; border-color: #4caf50; }
 #btnMove.active { background: #c62828; border-color: #ef5350; }
 #btnCut { background: #6d4c41; border-color: #8d6e63; }
@@ -78,10 +79,10 @@ button:active { background: #555; transform: scale(0.97); }
 #btnTunnel { background: #546e7a; border-color: #90a4ae; }
 #btnTunnel.active { background: #c62828; border-color: #ef5350; }
 #btnTrain { background: #1565c0; border-color: #42a5f5; }
+#btnUpgrade { background: #6a1b9a; border-color: #ab47bc; }
 #btnCancel,
 #btnCancelBase { background: #4a4a4a; border-color: #666; }
 
-/* Info banner */
 #info {
   position: fixed;
   top: max(8px, env(safe-area-inset-top));
@@ -98,7 +99,6 @@ button:active { background: #555; transform: scale(0.97); }
   line-height: 1.35;
 }
 
-/* Slightly roomier buttons on wider phones / tablets */
 @media (min-width: 420px) {
   button {
     font-size: 14px;

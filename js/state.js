@@ -16,34 +16,37 @@ let nextUnitId = 1;
 let selectedUnitId = null;
 /** Multi-select: array of unit ids. When length > 1, group mode is active. */
 let selectedUnitIds = [];
-let selectedBase = null;   // { x, y }
-let selectedArmory = null; // { x, y } origin of armory
+/** Full set from last box / select-similar before type filter */
+let fullSelectionIds = [];
+/** 'all' | 'worker' | 'soldier' */
+let selectionFilter = 'all';
+let selectedBase = null;
+let selectedArmory = null;
 let actionMode = null;
 let woodInBase = 0;
 let vireliumInBase = 0;
 let claimedTrees = new Map();
 let claimedMinerals = new Map();
 
-let playerBase = null; // { level, maxWorkers, segments: [{ x, y }] }
-let armories = [];     // { x, y } origin of each 2×2 armory
+let playerBase = null;
+let armories = [];
 
 /** true = camera pans on drag; false = camera locked, long-press-drag selects */
 let cameraPanEnabled = true;
 
-// Box-select gesture state (only active when camera is locked)
 let boxSelectActive = false;
-let boxSelectStart = null; // { x, y } screen coords
-let boxSelectCurrent = null; // { x, y } screen coords
+let boxSelectStart = null;
+let boxSelectCurrent = null;
 let longPressTimer = null;
 let longPressFired = false;
 
-// Double-tap detection
 let lastTapTime = 0;
 let lastTapX = 0, lastTapY = 0;
 const DOUBLE_TAP_MS = 320;
 const DOUBLE_TAP_DIST = 28;
-const LONG_PRESS_MS = 420;
-const LONG_PRESS_MOVE_TOL = 12;
+const LONG_PRESS_MS = 200; // snappy box-select start
+const LONG_PRESS_MOVE_TOL = 14;
+const SELECT_SIMILAR_RANGE = 12; // tiles
 
 // Future: MAX_SELECTION_SIZE (e.g. 16) — not enforced yet
 
@@ -60,9 +63,6 @@ function countWorkers() {
 }
 function countSoldiers() {
   return units.filter(u => u.unitType === 'soldier').length;
-}
-function soldiersAtArmory(ax, ay) {
-  return countSoldiers();
 }
 function maxSoldiers() {
   return armories.length * SOLDIERS_PER_ARMORY;
@@ -101,7 +101,7 @@ function releaseAllClaimsForUnit(unitId) {
 function makeUnit(x, y, unitType = 'worker') {
   return {
     id: nextUnitId++, x, y,
-    unitType, // 'worker' | 'soldier'
+    unitType,
     path: [], pathIndex: 0, goalX: null, goalY: null,
     harvesting: false, harvestTimer: 0, harvestTX: null, harvestTY: null,
     preferTreeX: null, preferTreeY: null,
@@ -132,14 +132,34 @@ function isUnitSelected(id) {
   if (selectedUnitIds.length) return selectedUnitIds.includes(id);
   return selectedUnitId === id;
 }
+function applySelectionFilter() {
+  let ids = fullSelectionIds.length ? fullSelectionIds : selectedUnitIds;
+  if (selectionFilter === 'worker') {
+    ids = ids.filter(id => {
+      const u = units.find(x => x.id === id);
+      return u && u.unitType === 'worker';
+    });
+  } else if (selectionFilter === 'soldier') {
+    ids = ids.filter(id => {
+      const u = units.find(x => x.id === id);
+      return u && u.unitType === 'soldier';
+    });
+  }
+  selectedUnitIds = ids;
+  selectedUnitId = ids.length === 1 ? ids[0] : (ids[0] ?? null);
+}
 function setSingleSelection(id) {
   selectedUnitId = id;
   selectedUnitIds = id != null ? [id] : [];
+  fullSelectionIds = selectedUnitIds.slice();
+  selectionFilter = 'all';
   selectedBase = null;
   selectedArmory = null;
 }
 function setMultiSelection(ids) {
-  selectedUnitIds = [...new Set(ids)];
+  fullSelectionIds = [...new Set(ids)];
+  selectionFilter = 'all';
+  selectedUnitIds = fullSelectionIds.slice();
   selectedUnitId = selectedUnitIds.length === 1 ? selectedUnitIds[0] : (selectedUnitIds[0] ?? null);
   selectedBase = null;
   selectedArmory = null;
@@ -148,9 +168,40 @@ function setMultiSelection(ids) {
 function clearSelection() {
   selectedUnitId = null;
   selectedUnitIds = [];
+  fullSelectionIds = [];
+  selectionFilter = 'all';
   selectedBase = null;
   selectedArmory = null;
   actionMode = null;
+}
+function selectionComposition(list) {
+  const workers = list.filter(u => u.unitType === 'worker');
+  const soldiers = list.filter(u => u.unitType === 'soldier');
+  return {
+    workers, soldiers,
+    allWorkers: workers.length === list.length && list.length > 0,
+    allSoldiers: soldiers.length === list.length && list.length > 0,
+    mixed: workers.length > 0 && soldiers.length > 0
+  };
+}
+function isUnitIdleForSelect(u) {
+  if (!u) return false;
+  if (u.path && u.path.length && u.pathIndex < u.path.length) return false;
+  if (u.harvesting || u.mining || u.building || u.tunneling) return false;
+  if (u.carryingWood || u.carryingVirelium) return false;
+  return true;
+}
+function selectSimilarNear(seed) {
+  if (!seed) return;
+  const ids = [];
+  const r = SELECT_SIMILAR_RANGE;
+  for (const u of units) {
+    if (u.unitType !== seed.unitType) continue;
+    if (!isUnitIdleForSelect(u) && u.id !== seed.id) continue;
+    if (Math.hypot(u.x - seed.x, u.y - seed.y) <= r) ids.push(u.id);
+  }
+  if (!ids.includes(seed.id)) ids.push(seed.id);
+  setMultiSelection(ids);
 }
 function clearUnitOrders(u) {
   if (!u) return;

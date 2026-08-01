@@ -36,11 +36,8 @@ function gameLoop(now) {
     if (u.tunneling && u.carveTimer > 0) {
       u.carveTimer -= dt;
       if (u.carveTimer <= 0) {
-        if (u.carveTileX !== null && u.carveTileY !== null) {
-          carveRockAt(u.carveTileX, u.carveTileY);
-        }
-        u.carveTimer = 0;
-        u.carveTileX = u.carveTileY = null;
+        if (u.carveTileX !== null && u.carveTileY !== null) carveRockAt(u.carveTileX, u.carveTileY);
+        u.carveTimer = 0; u.carveTileX = u.carveTileY = null;
       }
       needDraw = true;
       continue;
@@ -53,18 +50,14 @@ function gameLoop(now) {
         u.x = wp.x; u.y = wp.y;
         const tx = Math.floor(u.x), ty = Math.floor(u.y);
         if (u.tunneling && inBounds(tx, ty) && map[ty][tx] === TILE_ROCK) {
-          beginCarveTile(u, tx, ty);
-          needDraw = true;
-          continue;
+          beginCarveTile(u, tx, ty); needDraw = true; continue;
         }
         u.pathIndex++;
         if (u.pathIndex >= u.path.length) {
           u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
-          if (u.tunneling && u.tunnelCarvePath) {
-            startTunnelCarve(u);
-          } else if (u.tunneling) {
-            finishTunnel(u);
-          } else if (u.harvesting) startHarvestOnArrival(u);
+          if (u.tunneling && u.tunnelCarvePath) startTunnelCarve(u);
+          else if (u.tunneling) finishTunnel(u);
+          else if (u.harvesting) startHarvestOnArrival(u);
           else if (u.mining) startMineOnArrival(u);
           else if (u.building) finishBuild(u);
         }
@@ -76,11 +69,8 @@ function gameLoop(now) {
         const onRockTunnel = u.tunneling && inBounds(nx, ny) && map[ny][nx] === TILE_ROCK;
         if (onRockTunnel || isWalkable(newX, newY)) {
           if (onRockTunnel && (nx !== Math.floor(u.x) || ny !== Math.floor(u.y))) {
-            u.x = nx + 0.5; u.y = ny + 0.5;
-            beginCarveTile(u, nx, ny);
-          } else {
-            u.x = newX; u.y = newY;
-          }
+            u.x = nx + 0.5; u.y = ny + 0.5; beginCarveTile(u, nx, ny);
+          } else { u.x = newX; u.y = newY; }
         } else tryMoveUnit(u, ndx, ndy);
       }
       needDraw = true;
@@ -99,47 +89,76 @@ document.getElementById('btnResetView').addEventListener('click', () => {
   camY = (window.innerHeight - bottom - MAP_H * TILE * zoom) / 2;
   draw();
 });
+
 document.getElementById('btnMove').addEventListener('click', () => {
   const u = getSelectedUnit(); if (!u) return;
   if (actionMode === 'moveTarget') actionMode = null;
   else { actionMode = 'moveTarget'; clearUnitOrders(u); }
   updateUI(); draw();
 });
+document.getElementById('btnSoldierMove').addEventListener('click', () => {
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'soldier') return;
+  if (actionMode === 'moveTarget') actionMode = null;
+  else { actionMode = 'moveTarget'; clearUnitOrders(u); }
+  updateUI(); draw();
+});
 document.getElementById('btnCut').addEventListener('click', () => {
-  const u = getSelectedUnit(); if (!u) return;
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
   if (actionMode === 'cutTarget') actionMode = null;
   else { actionMode = 'cutTarget'; clearUnitOrders(u); }
   updateUI(); draw();
 });
 document.getElementById('btnMine').addEventListener('click', () => {
-  const u = getSelectedUnit(); if (!u) return;
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
   if (actionMode === 'mineTarget') actionMode = null;
   else { actionMode = 'mineTarget'; clearUnitOrders(u); }
   updateUI(); draw();
 });
 document.getElementById('btnTunnel').addEventListener('click', () => {
-  const u = getSelectedUnit(); if (!u) return;
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
   if (actionMode === 'tunnelStart' || actionMode === 'tunnelEnd') {
-    actionMode = null;
-    u.tunnelStart = null; u.tunnelEnd = null;
+    actionMode = null; u.tunnelStart = null; u.tunnelEnd = null;
   } else {
-    clearUnitOrders(u);
-    actionMode = 'tunnelStart';
+    clearUnitOrders(u); actionMode = 'tunnelStart';
   }
   updateUI(); draw();
 });
+
+// Nested build menu
 document.getElementById('btnBuild').addEventListener('click', () => {
-  const u = getSelectedUnit(); if (!u) return;
-  if (actionMode === 'buildTarget') actionMode = null;
-  else { actionMode = 'buildTarget'; clearUnitOrders(u); }
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
+  clearUnitOrders(u);
+  actionMode = 'buildMenu';
   updateUI(); draw();
 });
+document.getElementById('btnBuildBase').addEventListener('click', () => {
+  const u = getSelectedUnit(); if (!u) return;
+  actionMode = 'buildBaseTarget';
+  updateUI(); draw();
+});
+document.getElementById('btnBuildArmory').addEventListener('click', () => {
+  const u = getSelectedUnit(); if (!u) return;
+  actionMode = 'buildArmoryTarget';
+  updateUI(); draw();
+});
+document.getElementById('btnBuildCancel').addEventListener('click', () => {
+  actionMode = null;
+  updateUI(); draw();
+});
+
 document.getElementById('btnCancel').addEventListener('click', () => {
   const u = getSelectedUnit();
   if (u) clearUnitOrders(u);
   selectedUnitId = null; actionMode = null;
   updateUI(); draw();
 });
+document.getElementById('btnSoldierCancel').addEventListener('click', () => {
+  const u = getSelectedUnit();
+  if (u) clearUnitOrders(u);
+  selectedUnitId = null; actionMode = null;
+  updateUI(); draw();
+});
+
 document.getElementById('btnTrain').addEventListener('click', () => {
   if (!selectedBase) return;
   trainUnitAtBase(selectedBase.x, selectedBase.y);
@@ -155,12 +174,20 @@ document.getElementById('btnCancelBase').addEventListener('click', () => {
   selectedBase = null; updateUI(); draw();
 });
 
+document.getElementById('btnTrainSoldier').addEventListener('click', () => {
+  if (!selectedArmory) return;
+  trainSoldierAtArmory(selectedArmory.x, selectedArmory.y);
+});
+document.getElementById('btnCancelArmory').addEventListener('click', () => {
+  selectedArmory = null; updateUI(); draw();
+});
+
 window.addEventListener('resize', resize);
 
-// Start with a placed 3×3 base and one worker
 (function initGame() {
   const { baseSpot } = generateMap();
   units = [spawnWorkerBesideBase(baseSpot)];
+  armories = [];
   resize();
   setTimeout(() => document.getElementById('btnResetView').click(), 50);
   updateUI();

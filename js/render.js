@@ -63,7 +63,6 @@ function drawBoxSelect() {
   ctx.strokeRect(x, y, w, h);
   ctx.setLineDash([]);
 
-  // Live count inside the box
   let count = 0;
   for (const u of units) {
     const sx = camX + u.x * TILE * zoom;
@@ -154,6 +153,8 @@ function draw() {
     }
   }
 
+  const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 220);
+
   for (const u of units) {
     if (u.goalX !== null) {
       const tx = camX + u.goalX * TILE * zoom, ty = camY + u.goalY * TILE * zoom;
@@ -163,13 +164,12 @@ function draw() {
     const cx = camX + u.x * TILE * zoom, cy = camY + u.y * TILE * zoom;
     const radius = Math.max(5, 4.5 * zoom);
     if (isUnitSelected(u.id)) {
-      ctx.beginPath(); ctx.arc(cx, cy, radius + 5, 0, Math.PI * 2);
-      ctx.strokeStyle = '#FFEE55'; ctx.lineWidth = 2.5; ctx.stroke();
-      // Soft outer pulse for multi-select visibility
-      if (selectedUnitIds.length > 1) {
-        ctx.beginPath(); ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 238, 85, 0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
-      }
+      ctx.beginPath(); ctx.arc(cx, cy, radius + 4 + pulse * 2, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 238, 85, ${0.55 + pulse * 0.4})`;
+      ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, radius + 8 + pulse * 3, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 238, 85, ${0.2 + pulse * 0.2})`;
+      ctx.lineWidth = 1.5; ctx.stroke();
     }
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.fillStyle = u.unitType === 'soldier' ? '#37474F' : '#E53935';

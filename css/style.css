@@ -25,7 +25,10 @@ html, body {
 
 #mapActions,
 #unitActions,
-#baseActions {
+#soldierActions,
+#buildMenu,
+#baseActions,
+#armoryActions {
   display: none;
   width: 100%;
   max-width: 480px;
@@ -33,7 +36,10 @@ html, body {
 }
 
 #mapActions,
-#baseActions {
+#baseActions,
+#armoryActions,
+#soldierActions,
+#buildMenu {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
@@ -68,8 +74,8 @@ button:disabled {
   transform: none;
 }
 
-#btnMove { background: #2e7d32; border-color: #4caf50; }
-#btnMove.active { background: #c62828; border-color: #ef5350; }
+#btnMove, #btnSoldierMove { background: #2e7d32; border-color: #4caf50; }
+#btnMove.active, #btnSoldierMove.active { background: #c62828; border-color: #ef5350; }
 #btnCut { background: #6d4c41; border-color: #8d6e63; }
 #btnCut.active { background: #c62828; border-color: #ef5350; }
 #btnBuild { background: #6a1b9a; border-color: #9c27b0; }
@@ -80,8 +86,14 @@ button:disabled {
 #btnTunnel.active { background: #c62828; border-color: #ef5350; }
 #btnTrain { background: #1565c0; border-color: #42a5f5; }
 #btnUpgrade { background: #6a1b9a; border-color: #ab47bc; }
+#btnBuildBase { background: #6a1b9a; border-color: #ab47bc; }
+#btnBuildArmory { background: #b71c1c; border-color: #ef5350; }
+#btnTrainSoldier { background: #c62828; border-color: #ef9a9a; }
 #btnCancel,
-#btnCancelBase { background: #4a4a4a; border-color: #666; }
+#btnCancelBase,
+#btnCancelArmory,
+#btnBuildCancel,
+#btnSoldierCancel { background: #4a4a4a; border-color: #666; }
 
 #info {
   position: fixed;

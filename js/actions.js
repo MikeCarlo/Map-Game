@@ -79,6 +79,15 @@ function findNearestBaseDeposit(fromX, fromY, maxRange = 80) {
   return null;
 }
 
+function isBesideBase(x, y) {
+  const cx = Math.floor(x), cy = Math.floor(y);
+  for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+    const nx = cx + dx, ny = cy + dy;
+    if (inBounds(nx, ny) && map[ny][nx] === TILE_BASE) return true;
+  }
+  return false;
+}
+
 function nudgeToWalkable(u) {
   const cx = Math.floor(u.x), cy = Math.floor(u.y);
   if (isWalkableTile(cx, cy)) return;
@@ -94,7 +103,8 @@ function nudgeToWalkable(u) {
 }
 
 // ── Cut (wood) ──
-// Rule: one cut removes exactly 1 density → carry 1 wood → deposit at base → resume (prefer same tree).
+// Strict loop: go to tree → cut 1 density → carry wood to base → deposit → repeat.
+// Never cut again until wood is deposited at a real base tile.
 function setCutTarget(u, worldX, worldY) {
   if (u.carryingWood || u.carryingVirelium) return false;
   let gx = Math.floor(worldX), gy = Math.floor(worldY);
@@ -128,32 +138,43 @@ function setCutTarget(u, worldX, worldY) {
   u.returningToBase = false;
   u.mining = false;
   u.carryingVirelium = false;
+  u.carryingWood = false;
   u.harvestTX = gx;
   u.harvestTY = gy;
-  u.harvestTimer = 0; // timer starts only on arrival
+  u.harvestTimer = 0;
   return applyPath(u, tiles);
 }
 
 function returnToBaseWithWood(u) {
   nudgeToWalkable(u);
-  // Cancel any in-progress cut so we never harvest again while carrying
   u.harvestTimer = 0;
   u.harvestTX = u.harvestTY = null;
+  u.returningToBase = true;
 
   const deposit = findNearestBaseDeposit(Math.floor(u.x), Math.floor(u.y));
   if (!deposit) {
-    u.returningToBase = false;
+    // No base: keep carrying, idle
     u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
     updateUI(); return;
   }
-  u.returningToBase = true;
+
+  // Already beside base? Deposit on next arrival handler — still set a 1-step path so arrival fires
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
   let tiles = aStar(sx, sy, deposit.x, deposit.y, false) || pathToClosest(sx, sy, deposit.x, deposit.y);
+  if (!tiles || !tiles.length) {
+    tiles = [{ x: sx, y: sy }];
+  }
   applyPath(u, tiles);
   updateUI();
 }
 
 function depositWoodAndContinue(u) {
+  // Hard gate: only deposit when physically beside a base
+  if (!isBesideBase(u.x, u.y)) {
+    returnToBaseWithWood(u);
+    return;
+  }
+
   if (u.carryingWood) {
     u.carryingWood = false;
     woodInBase++;
@@ -167,7 +188,7 @@ function depositWoodAndContinue(u) {
     return;
   }
 
-  // Prefer the same tree if it still has density
+  // Prefer the same tree if it still has density left
   let next = null;
   if (u.preferTreeX !== null && u.preferTreeY !== null &&
       inBounds(u.preferTreeX, u.preferTreeY) &&
@@ -188,16 +209,16 @@ function depositWoodAndContinue(u) {
 function startHarvestOnArrival(u) {
   if (!u.harvesting) return;
 
-  // Arrived at base with wood → deposit, then go cut again
-  if (u.returningToBase && u.carryingWood) {
-    depositWoodAndContinue(u);
+  // Carrying wood: only deposit if beside base; otherwise keep walking home
+  if (u.carryingWood) {
+    if (isBesideBase(u.x, u.y)) depositWoodAndContinue(u);
+    else returnToBaseWithWood(u);
     return;
   }
 
-  // Never start a cut while already carrying wood
-  if (u.carryingWood) {
-    returnToBaseWithWood(u);
-    return;
+  // Returning flag without wood should not deposit
+  if (u.returningToBase) {
+    u.returningToBase = false;
   }
 
   if (u.harvestTX === null) return;
@@ -207,7 +228,7 @@ function startHarvestOnArrival(u) {
   const adjacent = Math.abs(cx - u.harvestTX) <= 1 && Math.abs(cy - u.harvestTY) <= 1;
 
   if (adjacent && treeStillThere) {
-    // Start a single harvest tick (exactly one density when the timer ends)
+    // Start exactly one harvest tick
     if (u.harvestTimer <= 0) u.harvestTimer = HARVEST_TIME;
   } else {
     releaseTree(u.harvestTX, u.harvestTY, u.id);
@@ -220,9 +241,10 @@ function startHarvestOnArrival(u) {
 }
 
 function finishCurrentTree(u) {
-  // Guard: only one density unit per completion
+  // Already carrying → do not cut again; go home
   if (u.carryingWood) {
     u.harvestTimer = 0;
+    u.harvestTX = u.harvestTY = null;
     returnToBaseWithWood(u);
     return;
   }
@@ -231,6 +253,7 @@ function finishCurrentTree(u) {
   u.harvestTimer = 0;
   u.harvestTX = u.harvestTY = null;
 
+  let tookWood = false;
   if (hx !== null && hy !== null && inBounds(hx, hy) && map[hy][hx] === TILE_TREE) {
     if (!treeDensity) {
       treeDensity = new Array(MAP_H);
@@ -238,9 +261,10 @@ function finishCurrentTree(u) {
     }
     let d = treeDensity[hy][hx];
     if (d <= 0) d = 1;
-    d -= 1; // exactly one wood
-    treeDensity[hy][hx] = d;
+    d -= 1; // exactly ONE density unit
+    treeDensity[hy][hx] = Math.max(0, d);
     u.carryingWood = true;
+    tookWood = true;
 
     if (d <= 0) {
       treeDensity[hy][hx] = 0;
@@ -248,10 +272,9 @@ function finishCurrentTree(u) {
       releaseTree(hx, hy, u.id);
       u.preferTreeX = u.preferTreeY = null;
     } else {
-      // Same tree still has wood — come back after depositing
+      // Remember this tree for after deposit
       u.preferTreeX = hx;
       u.preferTreeY = hy;
-      // Keep claim so others don't take it mid-trip
       claimTree(hx, hy, u.id);
     }
   } else if (hx !== null && hy !== null) {
@@ -260,9 +283,12 @@ function finishCurrentTree(u) {
 
   nudgeToWalkable(u);
 
-  // Always return home after a single cut
-  if (u.carryingWood && u.harvesting) returnToBaseWithWood(u);
-  else clearUnitOrders(u);
+  // Always return to base after a single cut — never continue cutting while carrying
+  if (tookWood && u.harvesting) {
+    returnToBaseWithWood(u);
+  } else {
+    clearUnitOrders(u);
+  }
   updateUI();
   draw();
 }
@@ -341,23 +367,34 @@ function depositMineralAndContinue(u) {
 }
 function startMineOnArrival(u) {
   if (!u.mining) return;
-  if (u.returningMineral && u.carryingVirelium) { depositMineralAndContinue(u); return; }
+  if (u.returningMineral && u.carryingVirelium) {
+    if (isBesideBase(u.x, u.y)) depositMineralAndContinue(u);
+    else returnToBaseWithMineral(u);
+    return;
+  }
+  if (u.carryingVirelium) {
+    returnToBaseWithMineral(u);
+    return;
+  }
   if (u.mineTX === null) return;
   const cx = Math.floor(u.x), cy = Math.floor(u.y);
   const stillThere = hasMineral(u.mineTX, u.mineTY);
   if (Math.abs(cx - u.mineTX) <= 1 && Math.abs(cy - u.mineTY) <= 1 && stillThere) {
-    if (u.carryingVirelium) { returnToBaseWithMineral(u); return; }
-    u.mineTimer = HARVEST_TIME;
+    if (u.mineTimer <= 0) u.mineTimer = HARVEST_TIME;
   } else {
     releaseMineral(u.mineTX, u.mineTY, u.id);
     u.mineTX = u.mineTY = null;
-    if (u.carryingVirelium) { returnToBaseWithMineral(u); return; }
     const next = findNearestMineral(cx, cy, u.id);
     if (next) setMineTarget(u, next.x + 0.5, next.y + 0.5);
     else { clearUnitOrders(u); updateUI(); }
   }
 }
 function finishMine(u) {
+  if (u.carryingVirelium) {
+    u.mineTimer = 0;
+    returnToBaseWithMineral(u);
+    return;
+  }
   if (u.mineTX !== null && u.mineTY !== null && hasMineral(u.mineTX, u.mineTY)) {
     mineralMap[u.mineTY][u.mineTX]--;
     u.carryingVirelium = true;

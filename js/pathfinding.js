@@ -1,4 +1,4 @@
-// pathfinding.js — A* and path helpers + idle unit spacing
+// pathfinding.js — A* and path helpers + unit tile exclusivity
 const PATH_DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
 function heuristic(ax, ay, bx, by) {
   const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
@@ -104,20 +104,29 @@ function isUnitIdle(u) {
   return !u.path || u.path.length === 0 || u.pathIndex >= u.path.length;
 }
 
-/** True if another idle unit is standing on tile (tx, ty). Moving units do not block. */
-function isTileOccupiedByIdleUnit(tx, ty, excludeId) {
+/**
+ * Tile cannot be used as a final stand position if another unit is on it
+ * or already has that tile as its path goal.
+ */
+function isTileBlockedForStand(tx, ty, excludeId) {
   for (const u of units) {
-    if (u.id === excludeId) continue;
-    if (!isUnitIdle(u)) continue;
+    if (excludeId != null && u.id === excludeId) continue;
     if (Math.floor(u.x) === tx && Math.floor(u.y) === ty) return true;
+    if (u.goalX != null && u.goalY != null &&
+        Math.floor(u.goalX) === tx && Math.floor(u.goalY) === ty) return true;
   }
   return false;
 }
 
-/** Nearest walkable tile not occupied by another idle unit. */
-function findFreeStandTile(nearX, nearY, excludeId, maxR = 6) {
+/** @deprecated alias — use isTileBlockedForStand */
+function isTileOccupiedByIdleUnit(tx, ty, excludeId) {
+  return isTileBlockedForStand(tx, ty, excludeId);
+}
+
+/** Nearest walkable tile free for this unit to stand on. */
+function findFreeStandTile(nearX, nearY, excludeId, maxR = 8) {
   const cx = Math.floor(nearX), cy = Math.floor(nearY);
-  if (isWalkableTile(cx, cy) && !isTileOccupiedByIdleUnit(cx, cy, excludeId)) {
+  if (isWalkableTile(cx, cy) && !isTileBlockedForStand(cx, cy, excludeId)) {
     return { x: cx, y: cy };
   }
   for (let r = 1; r <= maxR; r++) {
@@ -126,7 +135,7 @@ function findFreeStandTile(nearX, nearY, excludeId, maxR = 6) {
         if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
         const nx = cx + dx, ny = cy + dy;
         if (!isWalkableTile(nx, ny)) continue;
-        if (isTileOccupiedByIdleUnit(nx, ny, excludeId)) continue;
+        if (isTileBlockedForStand(nx, ny, excludeId)) continue;
         return { x: nx, y: ny };
       }
     }
@@ -135,16 +144,12 @@ function findFreeStandTile(nearX, nearY, excludeId, maxR = 6) {
 }
 
 /**
- * If an idle unit shares a tile with another idle unit, nudge the later one
- * (higher id) onto a free adjacent tile. Returns true if any unit moved.
+ * If idle units share a tile, move the later ones (higher id) to free tiles.
  */
 function separateIdleUnits() {
   let moved = false;
-  // Build occupancy of idle units (first occupant keeps the tile)
-  const claim = new Map(); // "x,y" -> unitId
-  const idle = units.filter(isUnitIdle);
-  // Stable order by id so behavior is deterministic
-  idle.sort((a, b) => a.id - b.id);
+  const claim = new Map();
+  const idle = units.filter(isUnitIdle).slice().sort((a, b) => a.id - b.id);
 
   for (const u of idle) {
     const tx = Math.floor(u.x), ty = Math.floor(u.y);
@@ -153,7 +158,6 @@ function separateIdleUnits() {
       claim.set(k, u.id);
       continue;
     }
-    // Conflict: find free tile and stand there
     const free = findFreeStandTile(u.x, u.y, u.id);
     if (free) {
       u.x = free.x + 0.5;
@@ -165,11 +169,11 @@ function separateIdleUnits() {
   return moved;
 }
 
-/** Call after a unit finishes a path so it doesn't stop on someone. */
+/** After a path ends, ensure the unit is not on another unit's tile. */
 function resolveIdleStand(u) {
   if (!u || !isUnitIdle(u)) return false;
   const tx = Math.floor(u.x), ty = Math.floor(u.y);
-  if (!isTileOccupiedByIdleUnit(tx, ty, u.id)) return false;
+  if (!isTileBlockedForStand(tx, ty, u.id)) return false;
   const free = findFreeStandTile(u.x, u.y, u.id);
   if (!free) return false;
   u.x = free.x + 0.5;

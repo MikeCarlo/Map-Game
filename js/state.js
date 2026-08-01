@@ -14,6 +14,8 @@ let pointerDownPos = null, didPan = false;
 let units = [];
 let nextUnitId = 1;
 let selectedUnitId = null;
+/** Multi-select: array of unit ids. When length > 1, group mode is active. */
+let selectedUnitIds = [];
 let selectedBase = null;   // { x, y }
 let selectedArmory = null; // { x, y } origin of armory
 let actionMode = null;
@@ -24,6 +26,26 @@ let claimedMinerals = new Map();
 
 let playerBase = null; // { level, maxWorkers, segments: [{ x, y }] }
 let armories = [];     // { x, y } origin of each 2×2 armory
+
+/** true = camera pans on drag; false = camera locked, long-press-drag selects */
+let cameraPanEnabled = true;
+
+// Box-select gesture state (only active when camera is locked)
+let boxSelectActive = false;
+let boxSelectStart = null; // { x, y } screen coords
+let boxSelectCurrent = null; // { x, y } screen coords
+let longPressTimer = null;
+let longPressFired = false;
+
+// Double-tap detection
+let lastTapTime = 0;
+let lastTapX = 0, lastTapY = 0;
+const DOUBLE_TAP_MS = 320;
+const DOUBLE_TAP_DIST = 28;
+const LONG_PRESS_MS = 420;
+const LONG_PRESS_MOVE_TOL = 12;
+
+// Future: MAX_SELECTION_SIZE (e.g. 16) — not enforced yet
 
 function makePlayerBase(originX, originY) {
   return {
@@ -40,7 +62,6 @@ function countSoldiers() {
   return units.filter(u => u.unitType === 'soldier').length;
 }
 function soldiersAtArmory(ax, ay) {
-  // Soldiers are global-capped per armory count for now: each armory allows +5 total capacity
   return countSoldiers();
 }
 function maxSoldiers() {
@@ -99,6 +120,37 @@ function makeUnit(x, y, unitType = 'worker') {
 }
 function getSelectedUnit() {
   return units.find(u => u.id === selectedUnitId) || null;
+}
+function getSelectedUnits() {
+  if (selectedUnitIds.length) {
+    return units.filter(u => selectedUnitIds.includes(u.id));
+  }
+  const one = getSelectedUnit();
+  return one ? [one] : [];
+}
+function isUnitSelected(id) {
+  if (selectedUnitIds.length) return selectedUnitIds.includes(id);
+  return selectedUnitId === id;
+}
+function setSingleSelection(id) {
+  selectedUnitId = id;
+  selectedUnitIds = id != null ? [id] : [];
+  selectedBase = null;
+  selectedArmory = null;
+}
+function setMultiSelection(ids) {
+  selectedUnitIds = [...new Set(ids)];
+  selectedUnitId = selectedUnitIds.length === 1 ? selectedUnitIds[0] : (selectedUnitIds[0] ?? null);
+  selectedBase = null;
+  selectedArmory = null;
+  actionMode = null;
+}
+function clearSelection() {
+  selectedUnitId = null;
+  selectedUnitIds = [];
+  selectedBase = null;
+  selectedArmory = null;
+  actionMode = null;
 }
 function clearUnitOrders(u) {
   if (!u) return;

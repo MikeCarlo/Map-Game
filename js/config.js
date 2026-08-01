@@ -38,12 +38,15 @@ function tileColor(tx, ty, tile) {
   if (tile === TILE_TUNNEL) return '#4A3728';
   return COLORS[tile];
 }
+
+// Each base segment is a 3×3 square. Level 1 = 1 segment, max 3 workers.
+const BASE_SEGMENT_SIZE = 3;
+const WORKERS_PER_BASE_LEVEL = 3;
 const BASE_FOOTPRINT = [];
 (function () {
-  for (let dy = 0; dy < 3; dy++)
-    for (let dx = 0; dx < 7; dx++) BASE_FOOTPRINT.push({ dx, dy });
-  for (let dy = 3; dy < 7; dy++)
-    for (let dx = 0; dx < 3; dx++) BASE_FOOTPRINT.push({ dx, dy });
+  for (let dy = 0; dy < BASE_SEGMENT_SIZE; dy++)
+    for (let dx = 0; dx < BASE_SEGMENT_SIZE; dx++)
+      BASE_FOOTPRINT.push({ dx, dy });
 })();
 
 const MOVE_SPEED = 5.5;
@@ -54,13 +57,12 @@ const SELECT_RADIUS = 28;
 const WOOD_WEIGHT = 1;
 const VIRELIUM_WEIGHT = 3;
 
-// Jet spew: interval is per-jet (slow 120s → fast 30s), amount is how much density is added per cycle
 const JET_SPEW_INTERVAL_MIN = 30;
 const JET_SPEW_INTERVAL_MAX = 120;
 const JET_SPEW_AMOUNT_MIN = 1;
 const JET_SPEW_AMOUNT_MAX = 6;
 const JET_MINERAL_CAP = 10;
-const JET_PULSE_DURATION = 1.4; // seconds for expanding cyan pulse
+const JET_PULSE_DURATION = 1.4;
 
 function getUnitSpeed(u) {
   if (u.tunneling && u.tunnelCarvePath === null && u.path && u.path.length) {

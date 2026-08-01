@@ -49,6 +49,38 @@ function drawJetPulses() {
   }
 }
 
+function drawBoxSelect() {
+  if (!boxSelectActive || !boxSelectStart || !boxSelectCurrent) return;
+  const x = Math.min(boxSelectStart.x, boxSelectCurrent.x);
+  const y = Math.min(boxSelectStart.y, boxSelectCurrent.y);
+  const w = Math.abs(boxSelectCurrent.x - boxSelectStart.x);
+  const h = Math.abs(boxSelectCurrent.y - boxSelectStart.y);
+  ctx.fillStyle = 'rgba(255, 238, 85, 0.12)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(255, 238, 85, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+
+  // Live count inside the box
+  let count = 0;
+  for (const u of units) {
+    const sx = camX + u.x * TILE * zoom;
+    const sy = camY + u.y * TILE * zoom;
+    if (sx >= x && sx <= x + w && sy >= y && sy <= y + h) count++;
+  }
+  if (count > 0) {
+    ctx.font = 'bold 13px system-ui, sans-serif';
+    ctx.fillStyle = '#FFEE55';
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 3;
+    const label = String(count);
+    ctx.strokeText(label, x + 6, y + 16);
+    ctx.fillText(label, x + 6, y + 16);
+  }
+}
+
 function draw() {
   if (!map) return;
   const w = window.innerWidth, h = window.innerHeight;
@@ -130,16 +162,19 @@ function draw() {
     }
     const cx = camX + u.x * TILE * zoom, cy = camY + u.y * TILE * zoom;
     const radius = Math.max(5, 4.5 * zoom);
-    if (u.id === selectedUnitId) {
+    if (isUnitSelected(u.id)) {
       ctx.beginPath(); ctx.arc(cx, cy, radius + 5, 0, Math.PI * 2);
       ctx.strokeStyle = '#FFEE55'; ctx.lineWidth = 2.5; ctx.stroke();
+      // Soft outer pulse for multi-select visibility
+      if (selectedUnitIds.length > 1) {
+        ctx.beginPath(); ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 238, 85, 0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
     }
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    // Workers = red, soldiers = steel blue
     ctx.fillStyle = u.unitType === 'soldier' ? '#37474F' : '#E53935';
     ctx.fill();
     if (u.unitType === 'soldier') {
-      // Small shield accent
       ctx.beginPath();
       ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
       ctx.strokeStyle = '#90A4AE';
@@ -165,4 +200,6 @@ function draw() {
       ctx.strokeStyle = '#006064'; ctx.lineWidth = 1; ctx.stroke();
     }
   }
+
+  drawBoxSelect();
 }

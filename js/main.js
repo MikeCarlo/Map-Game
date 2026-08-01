@@ -72,12 +72,9 @@ function gameLoop(now) {
         const step = Math.min(getUnitSpeed(u) * dt, dist);
         const ndx = (dx / dist) * step, ndy = (dy / dist) * step;
         const newX = u.x + ndx, newY = u.y + ndy;
-        const onTree = u.harvesting && u.harvestTX !== null &&
-          Math.floor(newX) === u.harvestTX && Math.floor(newY) === u.harvestTY &&
-          inBounds(u.harvestTX, u.harvestTY) && map[u.harvestTY][u.harvestTX] === TILE_TREE;
         const nx = Math.floor(newX), ny = Math.floor(newY);
         const onRockTunnel = u.tunneling && inBounds(nx, ny) && map[ny][nx] === TILE_ROCK;
-        if (onTree || onRockTunnel || isWalkable(newX, newY)) {
+        if (onRockTunnel || isWalkable(newX, newY)) {
           if (onRockTunnel && (nx !== Math.floor(u.x) || ny !== Math.floor(u.y))) {
             u.x = nx + 0.5; u.y = ny + 0.5;
             beginCarveTile(u, nx, ny);

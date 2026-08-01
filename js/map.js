@@ -226,11 +226,7 @@ function generateJets(m, minerals) {
     }
 
     jets.push({
-      x: cx,
-      y: cy,
-      radius,
-      interval,
-      amount,
+      x: cx, y: cy, radius, interval, amount,
       timer: interval * (0.3 + Math.random() * 0.7)
     });
   }
@@ -238,16 +234,12 @@ function generateJets(m, minerals) {
 
 function spawnJetPulse(jet) {
   jetPulses.push({
-    x: jet.x + 0.5,
-    y: jet.y + 0.5,
-    radius: jet.radius,
-    amount: jet.amount,
-    age: 0,
-    maxAge: JET_PULSE_DURATION
+    x: jet.x + 0.5, y: jet.y + 0.5,
+    radius: jet.radius, amount: jet.amount,
+    age: 0, maxAge: JET_PULSE_DURATION
   });
 }
 
-/** Add density around a jet. Returns true if any tile changed. */
 function spewJet(jet) {
   if (!mineralMap || !map) return false;
   const candidates = [];
@@ -267,7 +259,6 @@ function spewJet(jet) {
     }
   }
   if (!candidates.length) {
-    // Still show a pulse even if area is full — visual feedback that jet fired
     spawnJetPulse(jet);
     return true;
   }
@@ -284,12 +275,11 @@ function spewJet(jet) {
       if (r <= 0) { pick = i; break; }
     }
     const c = candidates[pick];
-    const add = 1;
-    mineralMap[c.y][c.x] = Math.min(JET_MINERAL_CAP, c.cur + add);
+    mineralMap[c.y][c.x] = Math.min(JET_MINERAL_CAP, c.cur + 1);
     c.cur = mineralMap[c.y][c.x];
     c.weight = (1 - Math.hypot(c.x - jet.x, c.y - jet.y) / (jet.radius + 1)) * (1 - c.cur / JET_MINERAL_CAP);
     if (c.cur >= JET_MINERAL_CAP) candidates.splice(pick, 1);
-    remaining -= add;
+    remaining -= 1;
     changed = true;
   }
   if (changed) spawnJetPulse(jet);
@@ -318,6 +308,68 @@ function updateJets(dt) {
   return changed;
 }
 
+/** Clear a 3×3 (and padding) of trees/stumps/minerals so the starter base can sit cleanly. */
+function clearAreaForBase(m, dens, minerals, ax, ay) {
+  for (let dy = -1; dy < BASE_SEGMENT_SIZE + 1; dy++) {
+    for (let dx = -1; dx < BASE_SEGMENT_SIZE + 1; dx++) {
+      const x = ax + dx, y = ay + dy;
+      if (!inBounds(x, y)) continue;
+      if (m[y][x] === TILE_TREE || m[y][x] === TILE_STUMP) {
+        m[y][x] = TILE_DIRT;
+        dens[y][x] = 0;
+      }
+      if (minerals[y][x] > 0) minerals[y][x] = 0;
+    }
+  }
+}
+
+function findStarterBaseSpot(m) {
+  // Prefer near map center
+  const cx0 = Math.floor(MAP_W / 2) - 1;
+  const cy0 = Math.floor(MAP_H / 2) - 1;
+  for (let r = 0; r < 40; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const ax = cx0 + dx, ay = cy0 + dy;
+        if (ax < 4 || ay < 4 || ax + BASE_SEGMENT_SIZE >= MAP_W - 4 || ay + BASE_SEGMENT_SIZE >= MAP_H - 4) continue;
+        let ok = true;
+        for (let sy = 0; sy < BASE_SEGMENT_SIZE && ok; sy++)
+          for (let sx = 0; sx < BASE_SEGMENT_SIZE && ok; sx++) {
+            const t = m[ay + sy][ax + sx];
+            if (t === TILE_ROCK || t === TILE_WATER || t === TILE_JET) ok = false;
+          }
+        if (ok) return { x: ax, y: ay };
+      }
+    }
+  }
+  return { x: cx0, y: cy0 };
+}
+
+function placeStartingBase(m, dens, minerals) {
+  const spot = findStarterBaseSpot(m);
+  clearAreaForBase(m, dens, minerals, spot.x, spot.y);
+  for (let dy = 0; dy < BASE_SEGMENT_SIZE; dy++)
+    for (let dx = 0; dx < BASE_SEGMENT_SIZE; dx++)
+      m[spot.y + dy][spot.x + dx] = TILE_BASE;
+  playerBase = makePlayerBase(spot.x, spot.y);
+  return spot;
+}
+
+function spawnWorkerBesideBase(spot) {
+  const dirs = [[-1,1],[3,1],[1,-1],[1,3],[-1,0],[3,0],[0,-1],[0,3],[1,1]];
+  for (const [dx, dy] of dirs) {
+    const x = spot.x + dx, y = spot.y + dy;
+    if (isWalkableTile(x, y)) return makeUnit(x + 0.5, y + 0.5);
+  }
+  for (let r = 1; r <= 6; r++)
+    for (let dy = -r; dy <= r + BASE_SEGMENT_SIZE; dy++)
+      for (let dx = -r; dx <= r + BASE_SEGMENT_SIZE; dx++) {
+        const x = spot.x + dx, y = spot.y + dy;
+        if (isWalkableTile(x, y)) return makeUnit(x + 0.5, y + 0.5);
+      }
+  return makeUnit(spot.x + 1.5, spot.y - 0.5);
+}
+
 function generateMap() {
   const m = createEmptyMap();
   const minerals = new Array(MAP_H);
@@ -327,23 +379,17 @@ function generateMap() {
     dens[y] = new Array(MAP_W).fill(0);
   }
   generateRockVeins(m); generateWater(m); generateTrees(m, dens); generateJets(m, minerals);
+  const baseSpot = placeStartingBase(m, dens, minerals);
   mineralMap = minerals;
   treeDensity = dens;
   map = m;
   recomputeRockElevation();
-  return m;
+  return { map: m, baseSpot };
 }
-function spawnUnitAtRandom() {
-  for (let a = 0; a < 400; a++) {
-    const x = rand(15, MAP_W - 16), y = rand(15, MAP_H - 16);
-    if (map[y][x] === TILE_DIRT && (!mineralMap || mineralMap[y][x] === 0))
-      return makeUnit(x + 0.5, y + 0.5);
-  }
-  return makeUnit(MAP_W / 2, MAP_H / 2);
-}
+
 function newMap() {
-  map = generateMap();
-  units = [spawnUnitAtRandom()];
+  const { baseSpot } = generateMap();
+  units = [spawnWorkerBesideBase(baseSpot)];
   selectedUnitId = null; selectedBase = null; actionMode = null;
   woodInBase = 0; vireliumInBase = 0;
   claimedTrees.clear(); claimedMinerals.clear();

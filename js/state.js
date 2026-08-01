@@ -14,14 +14,12 @@ let pointerDownPos = null, didPan = false;
 let units = [];
 let nextUnitId = 1;
 let selectedUnitId = null;
-/** Multi-select: array of unit ids. When length > 1, group mode is active. */
 let selectedUnitIds = [];
-/** Full set from last box / select-similar before type filter */
 let fullSelectionIds = [];
-/** 'all' | 'worker' | 'soldier' */
 let selectionFilter = 'all';
 let selectedBase = null;
 let selectedArmory = null;
+let selectedHut = null; // { x, y } origin
 let actionMode = null;
 let woodInBase = 0;
 let vireliumInBase = 0;
@@ -30,8 +28,10 @@ let claimedMinerals = new Map();
 
 let playerBase = null;
 let armories = [];
+/** Enemy huts: { id, x, y, hp, maxHp, spawnTimer } */
+let huts = [];
+let nextHutId = 1;
 
-/** true = camera pans on drag; false = camera locked, long-press-drag selects */
 let cameraPanEnabled = true;
 
 let boxSelectActive = false;
@@ -44,11 +44,9 @@ let lastTapTime = 0;
 let lastTapX = 0, lastTapY = 0;
 const DOUBLE_TAP_MS = 320;
 const DOUBLE_TAP_DIST = 28;
-const LONG_PRESS_MS = 200; // snappy box-select start
+const LONG_PRESS_MS = 200;
 const LONG_PRESS_MOVE_TOL = 14;
-const SELECT_SIMILAR_RANGE = 12; // tiles
-
-// Future: MAX_SELECTION_SIZE (e.g. 16) — not enforced yet
+const SELECT_SIMILAR_RANGE = 12;
 
 function makePlayerBase(originX, originY) {
   return {
@@ -64,12 +62,21 @@ function countWorkers() {
 function countSoldiers() {
   return units.filter(u => u.unitType === 'soldier').length;
 }
+function countEnemies() {
+  return units.filter(u => u.unitType === 'enemy').length;
+}
 function maxSoldiers() {
   return armories.length * SOLDIERS_PER_ARMORY;
 }
 function findArmoryAt(tx, ty) {
   for (const a of armories) {
     if (tx >= a.x && tx < a.x + ARMORY_SIZE && ty >= a.y && ty < a.y + ARMORY_SIZE) return a;
+  }
+  return null;
+}
+function findHutAt(tx, ty) {
+  for (const h of huts) {
+    if (tx >= h.x && tx < h.x + HUT_SIZE && ty >= h.y && ty < h.y + HUT_SIZE) return h;
   }
   return null;
 }
@@ -99,7 +106,7 @@ function releaseAllClaimsForUnit(unitId) {
 }
 
 function makeUnit(x, y, unitType = 'worker') {
-  return {
+  const u = {
     id: nextUnitId++, x, y,
     unitType,
     path: [], pathIndex: 0, goalX: null, goalY: null,
@@ -115,8 +122,23 @@ function makeUnit(x, y, unitType = 'worker') {
     tunnelCarvePath: null,
     carveTimer: 0,
     carveTileX: null,
-    carveTileY: null
+    carveTileY: null,
+    // combat
+    hp: null,
+    maxHp: null,
+    attacking: false,
+    attackTargetId: null,   // unit id
+    attackHutId: null,      // hut id
+    attackTimer: 0
   };
+  if (unitType === 'soldier') {
+    u.hp = SOLDIER_MAX_HP;
+    u.maxHp = SOLDIER_MAX_HP;
+  } else if (unitType === 'enemy') {
+    u.hp = ENEMY_MAX_HP;
+    u.maxHp = ENEMY_MAX_HP;
+  }
+  return u;
 }
 function getSelectedUnit() {
   return units.find(u => u.id === selectedUnitId) || null;
@@ -155,6 +177,7 @@ function setSingleSelection(id) {
   selectionFilter = 'all';
   selectedBase = null;
   selectedArmory = null;
+  selectedHut = null;
 }
 function setMultiSelection(ids) {
   fullSelectionIds = [...new Set(ids)];
@@ -163,6 +186,7 @@ function setMultiSelection(ids) {
   selectedUnitId = selectedUnitIds.length === 1 ? selectedUnitIds[0] : (selectedUnitIds[0] ?? null);
   selectedBase = null;
   selectedArmory = null;
+  selectedHut = null;
   actionMode = null;
 }
 function clearSelection() {
@@ -172,6 +196,7 @@ function clearSelection() {
   selectionFilter = 'all';
   selectedBase = null;
   selectedArmory = null;
+  selectedHut = null;
   actionMode = null;
 }
 function selectionComposition(list) {
@@ -186,13 +211,14 @@ function selectionComposition(list) {
 }
 function isUnitIdleForSelect(u) {
   if (!u) return false;
+  if (u.unitType === 'enemy') return false;
   if (u.path && u.path.length && u.pathIndex < u.path.length) return false;
-  if (u.harvesting || u.mining || u.building || u.tunneling) return false;
+  if (u.harvesting || u.mining || u.building || u.tunneling || u.attacking) return false;
   if (u.carryingWood || u.carryingVirelium) return false;
   return true;
 }
 function selectSimilarNear(seed) {
-  if (!seed) return;
+  if (!seed || seed.unitType === 'enemy') return;
   const ids = [];
   const r = SELECT_SIMILAR_RANGE;
   for (const u of units) {
@@ -215,4 +241,5 @@ function clearUnitOrders(u) {
   u.building = false; u.buildKind = null; u.buildTX = u.buildTY = null;
   u.tunneling = false; u.tunnelStart = null; u.tunnelEnd = null; u.tunnelCarvePath = null;
   u.carveTimer = 0; u.carveTileX = u.carveTileY = null;
+  u.attacking = false; u.attackTargetId = null; u.attackHutId = null; u.attackTimer = 0;
 }

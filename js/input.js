@@ -5,6 +5,17 @@ function screenToTile(clientX, clientY) {
 function unitAtScreen(clientX, clientY) {
   for (let i = units.length - 1; i >= 0; i--) {
     const u = units[i];
+    if (u.unitType === 'enemy') continue; // not selectable as player unit
+    const sx = camX + u.x * TILE * zoom, sy = camY + u.y * TILE * zoom;
+    if (Math.hypot(clientX - sx, clientY - sy) < SELECT_RADIUS + Math.max(0, zoom * 2))
+      return u;
+  }
+  return null;
+}
+function enemyAtScreen(clientX, clientY) {
+  for (let i = units.length - 1; i >= 0; i--) {
+    const u = units[i];
+    if (u.unitType !== 'enemy') continue;
     const sx = camX + u.x * TILE * zoom, sy = camY + u.y * TILE * zoom;
     if (Math.hypot(clientX - sx, clientY - sy) < SELECT_RADIUS + Math.max(0, zoom * 2))
       return u;
@@ -45,6 +56,7 @@ function finishBoxSelect() {
   const y2 = Math.max(boxSelectStart.y, boxSelectCurrent.y);
   const ids = [];
   for (const u of units) {
+    if (u.unitType === 'enemy') continue;
     const sx = camX + u.x * TILE * zoom;
     const sy = camY + u.y * TILE * zoom;
     if (sx >= x1 && sx <= x2 && sy >= y1 && sy <= y2) ids.push(u.id);
@@ -97,12 +109,10 @@ function handleTap(clientX, clientY) {
   const hitForDouble = unitAtScreen(clientX, clientY);
   if (isDouble) {
     if (hitForDouble) {
-      // Double-tap unit: select similar idle of same type nearby
       selectSimilarNear(hitForDouble);
       actionMode = null;
       updateUI(); draw();
     } else {
-      // Double-tap empty ground: toggle camera pan / select mode
       toggleCameraPan();
     }
     return;
@@ -110,7 +120,6 @@ function handleTap(clientX, clientY) {
 
   const selected = getSelectedUnits();
   const primary = selected[0] || null;
-  const comp = selectionComposition(selected);
 
   if (actionMode === 'moveTarget' && selected.length) {
     const tile = screenToTile(clientX, clientY);
@@ -120,6 +129,21 @@ function handleTap(clientX, clientY) {
       }
     } else if (setGroupMoveTarget(selected, tile.x, tile.y)) {
       actionMode = null; updateUI(); draw();
+    }
+    return;
+  }
+
+  if (actionMode === 'attackTarget' && selected.length) {
+    const tile = screenToTile(clientX, clientY);
+    const soldiers = selected.filter(u => u.unitType === 'soldier');
+    if (soldiers.length > 1) {
+      if (setGroupAttackAtPoint(soldiers, tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    } else if (soldiers.length === 1) {
+      if (setAttackAtPoint(soldiers[0], tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
     }
     return;
   }
@@ -194,6 +218,7 @@ function handleTap(clientX, clientY) {
   if (inBounds(tx, ty) && map[ty][tx] === TILE_BASE) {
     selectedBase = { x: tx, y: ty };
     selectedArmory = null;
+    selectedHut = null;
     selectedUnitId = null;
     selectedUnitIds = [];
     fullSelectionIds = [];
@@ -205,6 +230,20 @@ function handleTap(clientX, clientY) {
     if (a) {
       selectedArmory = { x: a.x, y: a.y };
       selectedBase = null;
+      selectedHut = null;
+      selectedUnitId = null;
+      selectedUnitIds = [];
+      fullSelectionIds = [];
+      actionMode = null;
+      updateUI(); draw(); return;
+    }
+  }
+  if (inBounds(tx, ty) && map[ty][tx] === TILE_HUT) {
+    const h = findHutAt(tx, ty);
+    if (h) {
+      selectedHut = { x: h.x, y: h.y };
+      selectedBase = null;
+      selectedArmory = null;
       selectedUnitId = null;
       selectedUnitIds = [];
       fullSelectionIds = [];

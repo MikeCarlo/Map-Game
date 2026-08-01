@@ -55,6 +55,8 @@ function gameLoop(now) {
         u.pathIndex++;
         if (u.pathIndex >= u.path.length) {
           u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
+          // Don't stop on top of another idle unit
+          resolveIdleStand(u);
           if (u.tunneling && u.tunnelCarvePath) startTunnelCarve(u);
           else if (u.tunneling) finishTunnel(u);
           else if (u.harvesting) startHarvestOnArrival(u);
@@ -76,6 +78,10 @@ function gameLoop(now) {
       needDraw = true;
     }
   }
+
+  // Idle units never share the same map tile
+  if (separateIdleUnits()) needDraw = true;
+
   if (needDraw) draw();
   requestAnimationFrame(gameLoop);
 }
@@ -124,7 +130,6 @@ document.getElementById('btnTunnel').addEventListener('click', () => {
   updateUI(); draw();
 });
 
-// Nested build menu
 document.getElementById('btnBuild').addEventListener('click', () => {
   const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
   clearUnitOrders(u);

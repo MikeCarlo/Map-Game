@@ -1,15 +1,21 @@
 // actions.js — unit actions: move, cut, mine, build, tunnel, train, upgrade, armory
 function setMoveTarget(u, worldX, worldY) {
   let gx = Math.floor(worldX), gy = Math.floor(worldY);
-  if (!isWalkableTile(gx, gy)) {
-    let found = false;
-    for (let r = 1; r <= 8 && !found; r++)
-      for (let dy = -r; dy <= r && !found; dy++)
-        for (let dx = -r; dx <= r && !found; dx++)
-          if (isWalkableTile(gx + dx, gy + dy)) { gx += dx; gy += dy; found = true; }
-    if (!found) return false;
+
+  // Destination must be walkable AND not occupied / claimed by another unit
+  if (!isWalkableTile(gx, gy) || isTileBlockedForStand(gx, gy, u.id)) {
+    const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 10);
+    if (!free) return false;
+    gx = free.x;
+    gy = free.y;
   }
+
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
+  // Already standing on the free tile — nothing to do
+  if (sx === gx && sy === gy) {
+    u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
+    return true;
+  }
   let tiles = aStar(sx, sy, gx, gy, false) || pathToClosest(sx, sy, gx, gy);
   return applyPath(u, tiles);
 }
@@ -36,21 +42,24 @@ function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
   return null;
 }
 
-function findStandTileNearTree(tx, ty, fromX, fromY) {
+function findStandTileNearTree(tx, ty, fromX, fromY, unitId) {
   const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
   let best = null, bestD = Infinity;
   for (const [dx, dy] of dirs) {
     const nx = tx + dx, ny = ty + dy;
     if (!isWalkableTile(nx, ny)) continue;
+    if (unitId != null && isTileBlockedForStand(nx, ny, unitId)) continue;
     const d = Math.hypot(nx - fromX, ny - fromY);
     if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
   }
   if (!best) {
-    for (let r = 2; r <= 4 && !best; r++)
+    for (let r = 2; r <= 5 && !best; r++)
       for (let dy = -r; dy <= r && !best; dy++)
         for (let dx = -r; dx <= r && !best; dx++) {
           const nx = tx + dx, ny = ty + dy;
-          if (isWalkableTile(nx, ny)) best = { x: nx, y: ny };
+          if (!isWalkableTile(nx, ny)) continue;
+          if (unitId != null && isTileBlockedForStand(nx, ny, unitId)) continue;
+          best = { x: nx, y: ny };
         }
   }
   return best;
@@ -89,19 +98,15 @@ function isBesideBase(x, y) {
 
 function nudgeToWalkable(u) {
   const cx = Math.floor(u.x), cy = Math.floor(u.y);
-  if (isWalkableTile(cx, cy)) return;
-  for (let r = 1; r <= 4; r++)
-    for (let dy = -r; dy <= r; dy++)
-      for (let dx = -r; dx <= r; dx++) {
-        const nx = cx + dx, ny = cy + dy;
-        if (isWalkableTile(nx, ny)) {
-          u.x = nx + 0.5; u.y = ny + 0.5;
-          return;
-        }
-      }
+  if (isWalkableTile(cx, cy) && !isTileBlockedForStand(cx, cy, u.id)) return;
+  const free = findFreeStandTile(u.x, u.y, u.id, 6);
+  if (free) {
+    u.x = free.x + 0.5;
+    u.y = free.y + 0.5;
+  }
 }
 
-// ── Cut / Mine (unchanged core loops) ──
+// ── Cut / Mine ──
 function setCutTarget(u, worldX, worldY) {
   if (u.unitType !== 'worker') return false;
   if (u.carryingWood || u.carryingVirelium) return false;
@@ -122,7 +127,7 @@ function setCutTarget(u, worldX, worldY) {
       gx = nearest.x; gy = nearest.y;
     }
   }
-  const stand = findStandTileNearTree(gx, gy, Math.floor(u.x), Math.floor(u.y));
+  const stand = findStandTileNearTree(gx, gy, Math.floor(u.x), Math.floor(u.y), u.id);
   if (!stand) return false;
   releaseAllClaimsForUnit(u.id);
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
@@ -139,8 +144,14 @@ function returnToBaseWithWood(u) {
   u.harvestTimer = 0; u.harvestTX = u.harvestTY = null; u.returningToBase = true;
   const deposit = findNearestBaseDeposit(Math.floor(u.x), Math.floor(u.y));
   if (!deposit) { u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null; updateUI(); return; }
+  // Prefer a free deposit tile so workers don't stack at the same drop-off
+  let gx = deposit.x, gy = deposit.y;
+  if (isTileBlockedForStand(gx, gy, u.id)) {
+    const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 6);
+    if (free) { gx = free.x; gy = free.y; }
+  }
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
-  let tiles = aStar(sx, sy, deposit.x, deposit.y, false) || pathToClosest(sx, sy, deposit.x, deposit.y);
+  let tiles = aStar(sx, sy, gx, gy, false) || pathToClosest(sx, sy, gx, gy);
   if (!tiles || !tiles.length) tiles = [{ x: sx, y: sy }];
   applyPath(u, tiles); updateUI();
 }
@@ -251,9 +262,15 @@ function setMineTarget(u, worldX, worldY) {
       gx = nearest.x; gy = nearest.y;
     }
   }
+  // Mining stand tile: mineral tile itself or nearest free adjacent if blocked
+  let standX = gx, standY = gy;
+  if (isTileBlockedForStand(gx, gy, u.id)) {
+    const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 4);
+    if (free) { standX = free.x; standY = free.y; }
+  }
   releaseAllClaimsForUnit(u.id);
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
-  let tiles = aStar(sx, sy, gx, gy, false) || pathToClosest(sx, sy, gx, gy);
+  let tiles = aStar(sx, sy, standX, standY, false) || pathToClosest(sx, sy, standX, standY);
   if (!tiles || !tiles.length) return false;
   claimMineral(gx, gy, u.id);
   u.mining = true; u.returningMineral = false;
@@ -267,8 +284,13 @@ function returnToBaseWithMineral(u) {
     u.returningMineral = false; u.mineTX = u.mineTY = null; u.path = []; u.pathIndex = 0; updateUI(); return;
   }
   u.returningMineral = true; u.mineTX = u.mineTY = null;
+  let gx = deposit.x, gy = deposit.y;
+  if (isTileBlockedForStand(gx, gy, u.id)) {
+    const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 6);
+    if (free) { gx = free.x; gy = free.y; }
+  }
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
-  let tiles = aStar(sx, sy, deposit.x, deposit.y, false) || pathToClosest(sx, sy, deposit.x, deposit.y);
+  let tiles = aStar(sx, sy, gx, gy, false) || pathToClosest(sx, sy, gx, gy);
   applyPath(u, tiles); updateUI();
 }
 function depositMineralAndContinue(u) {
@@ -414,14 +436,11 @@ function finishBuild(u) {
     } else {
       if (canPlaceBase(u.buildTX, u.buildTY)) registerBaseSegment(u.buildTX, u.buildTY);
     }
-    if (!isWalkable(u.x, u.y)) {
-      const cx = Math.floor(u.x), cy = Math.floor(u.y);
-      outer: for (let r = 1; r <= 4; r++)
-        for (let dy = -r; dy <= r; dy++)
-          for (let dx = -r; dx <= r; dx++)
-            if (isWalkableTile(cx + dx, cy + dy)) {
-              u.x = cx + dx + 0.5; u.y = cy + dy + 0.5; break outer;
-            }
+    // Step off the new building onto a free tile
+    const free = findFreeStandTile(u.x, u.y, u.id, 6);
+    if (free) {
+      u.x = free.x + 0.5;
+      u.y = free.y + 0.5;
     }
   }
   u.building = false; u.buildKind = null; u.buildTX = u.buildTY = null;
@@ -510,6 +529,8 @@ function spawnUnitNear(bx, by, unitType) {
   const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1],[2,0],[-2,0],[0,2],[0,-2]];
   const trySpawn = (nx, ny) => {
     if (!isWalkableTile(nx, ny)) return null;
+    // Never spawn on a tile another unit is on or heading to
+    if (isTileBlockedForStand(nx, ny, null)) return null;
     const u = makeUnit(nx + 0.5, ny + 0.5, unitType);
     units.push(u);
     return u;
@@ -518,9 +539,10 @@ function spawnUnitNear(bx, by, unitType) {
     const u = trySpawn(bx + dx, by + dy);
     if (u) return u;
   }
-  for (let r = 1; r <= 6; r++)
+  for (let r = 1; r <= 8; r++)
     for (let dy = -r; dy <= r; dy++)
       for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r && r > 1) continue;
         const u = trySpawn(bx + dx, by + dy);
         if (u) return u;
       }

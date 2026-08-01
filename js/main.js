@@ -55,7 +55,6 @@ function gameLoop(now) {
         u.pathIndex++;
         if (u.pathIndex >= u.path.length) {
           u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
-          // Don't stop on top of another idle unit
           resolveIdleStand(u);
           if (u.tunneling && u.tunnelCarvePath) startTunnelCarve(u);
           else if (u.tunneling) finishTunnel(u);
@@ -79,7 +78,6 @@ function gameLoop(now) {
     }
   }
 
-  // Idle units never share the same map tile
   if (separateIdleUnits()) needDraw = true;
 
   if (needDraw) draw();
@@ -106,6 +104,16 @@ document.getElementById('btnSoldierMove').addEventListener('click', () => {
   const u = getSelectedUnit(); if (!u || u.unitType !== 'soldier') return;
   if (actionMode === 'moveTarget') actionMode = null;
   else { actionMode = 'moveTarget'; clearUnitOrders(u); }
+  updateUI(); draw();
+});
+document.getElementById('btnGroupMove').addEventListener('click', () => {
+  const list = getSelectedUnits();
+  if (list.length < 2) return;
+  if (actionMode === 'moveTarget') actionMode = null;
+  else {
+    actionMode = 'moveTarget';
+    for (const u of list) clearUnitOrders(u);
+  }
   updateUI(); draw();
 });
 document.getElementById('btnCut').addEventListener('click', () => {
@@ -154,13 +162,18 @@ document.getElementById('btnBuildCancel').addEventListener('click', () => {
 document.getElementById('btnCancel').addEventListener('click', () => {
   const u = getSelectedUnit();
   if (u) clearUnitOrders(u);
-  selectedUnitId = null; actionMode = null;
+  clearSelection();
   updateUI(); draw();
 });
 document.getElementById('btnSoldierCancel').addEventListener('click', () => {
   const u = getSelectedUnit();
   if (u) clearUnitOrders(u);
-  selectedUnitId = null; actionMode = null;
+  clearSelection();
+  updateUI(); draw();
+});
+document.getElementById('btnGroupCancel').addEventListener('click', () => {
+  for (const u of getSelectedUnits()) clearUnitOrders(u);
+  clearSelection();
   updateUI(); draw();
 });
 
@@ -193,6 +206,8 @@ window.addEventListener('resize', resize);
   const { baseSpot } = generateMap();
   units = [spawnWorkerBesideBase(baseSpot)];
   armories = [];
+  cameraPanEnabled = true;
+  if (typeof updateCameraModeIndicator === 'function') updateCameraModeIndicator();
   resize();
   setTimeout(() => document.getElementById('btnResetView').click(), 50);
   updateUI();

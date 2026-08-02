@@ -93,6 +93,20 @@ Pathfinding still routes around terrain you have not discovered yet — units
 know the shape of the map even where you don't. Set `FOG_ENABLED = false` in
 `js/config.js` to reveal the whole map.
 
+### Minimap
+
+The panel under the PAN badge is a live overview of everything you have
+explored — one pixel per tile, in the same three fog states as the main view.
+
+- **Red dots** — workers · **white dots** — soldiers · **green dots** — enemies
+  you can currently see
+- **Yellow box** — units you have selected
+- **White rectangle** — the part of the world on screen right now
+- Cyan patches are Virelium you have found
+
+**Tap or drag on the minimap to jump the camera there** — handy once the map is
+zoomed in far enough that the whole world no longer fits on screen.
+
 ---
 
 ## Controls
@@ -245,6 +259,7 @@ js/pathfinding.js   # A* pathfinding
 js/actions.js       # move / cut / mine / build / tunnel / train
 js/ui.js            # bottom bar labels & info text
 js/render.js        # canvas draw
+js/minimap.js       # explored-area overview + tap to jump
 js/input.js         # pan, zoom, tap
 js/main.js          # game loop, buttons, boot
 ```

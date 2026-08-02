@@ -29,7 +29,7 @@ Order matters (globals, no modules):
 ```
 config.js → state.js → map.js → fog.js → pathfinding.js
 → actions1.js → actions2.js → actions3.js → actions4.js → actions5.js
-→ buildings.js → combat.js → ui.js → render.js → input.js → main.js
+→ buildings.js → combat.js → ui.js → render.js → minimap.js → input.js → main.js
 ```
 
 `js/actions.js` is a **stub only** (comment pointing at the split files). Do not put logic there.
@@ -52,6 +52,7 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 | `js/combat.js` | Soldiers, enemies, hut spawn, attack targeting |
 | `js/ui.js` | Bottom bar visibility, info text, selection chrome |
 | `js/render.js` | Canvas draw, pie-arc unit HP, death stains |
+| `js/minimap.js` | Minimap overview canvas, tap-to-jump camera |
 | `js/input.js` | Touch/mouse, pan vs SELECT mode, action targeting |
 | `js/main.js` | Game loop, timers, button listeners, init |
 | `css/style.css` | UI layout |
@@ -67,6 +68,7 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 - **Harvest pattern:** one resource unit per trip; worker must return beside base to deposit, then continue.
 - **Buildings:** multi-tile footprints; **per-tile HP** in `buildingHpMap`. Color lerps toward grey as HP drops. Aggregate % shown when selecting base/armory.
 - **Fog of war:** two `Uint8Array(MAP_W * MAP_H)` layers in `fog.js`. `updateVisibility()` runs once per frame from `main.js` (~0.1 ms) — it clears `visibleMap` and re-stamps a disc per player unit / base segment / armory; `exploredMap` only ever grows. Anything that reveals live state (enemy units, jet pulses, death stains, hut damage, enemy counts in the info bar) must check `isTileVisible` / `isPointVisible`; anything the player could plausibly remember (terrain, resource auto-search targets, hut selection) checks `isTileExplored`. `FOG_ENABLED = false` in `config.js` turns the whole thing off. **Known gap:** A* still paths on the true map, so units route around unseen obstacles.
+- **Minimap:** own canvas overlay (`#minimap`), redrawn from the tail of `draw()`. Terrain is a 1 px-per-tile `ImageData` written through a `Uint32Array` view using flat per-tile-type palettes (lit + dimmed), then upscaled with smoothing off — ~0.1 ms/frame. It reads the same fog helpers as the main view, so it can never show more than the player knows. Its pointer handlers `stopPropagation` so taps never reach the game canvas.
 - **Occupancy:** idle units cannot share a stand tile (`isTileBlockedForStand` / goal reservation).
 - **Mobile SELECT mode:** double-tap empty ground toggles pan vs locked; long-press drag box-select only when locked. Grey dashed viewport border in SELECT mode.
 

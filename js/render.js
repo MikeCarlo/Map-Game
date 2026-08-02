@@ -376,4 +376,5 @@ function draw() {
 
   drawBoxSelect();
   drawSelectModeFrame();
+  if (typeof drawMinimap === 'function') drawMinimap();
 }

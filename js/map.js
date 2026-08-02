@@ -439,6 +439,7 @@ function generateMap() {
   map = m;
   armories = [];
   recomputeRockElevation();
+  if (typeof createFogArrays === 'function') createFogArrays(); // new world, nothing seen
   return { map: m, baseSpot };
 }
 
@@ -452,5 +453,6 @@ function newMap() {
   jetPulses = [];
   armories = [];
   deathMarks = [];
+  updateVisibility();
   updateUI(); draw();
 }

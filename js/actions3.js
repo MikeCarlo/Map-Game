@@ -5,7 +5,8 @@ function findNearestMineral(fromX, fromY, unitId, maxRange = 50) {
   while (queue.length) {
     const cur = queue.shift();
     if (cur.d > maxRange) break;
-    if (hasMineral(cur.x, cur.y) && !isMineralClaimedByOther(cur.x, cur.y, unitId) && isWalkableTile(cur.x, cur.y))
+    if (hasMineral(cur.x, cur.y) && isTileExplored(cur.x, cur.y) &&
+        !isMineralClaimedByOther(cur.x, cur.y, unitId) && isWalkableTile(cur.x, cur.y))
       return { x: cur.x, y: cur.y };
     for (const [dx, dy] of dirs) {
       const nx = cur.x + dx, ny = cur.y + dy, nk = key(nx, ny);

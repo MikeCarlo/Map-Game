@@ -69,6 +69,7 @@ function setGroupCutTarget(workerList, worldX, worldY) {
         for (let dx = -r; dx <= r; dx++) {
           const nx = cx + dx, ny = cy + dy;
           if (!inBounds(nx, ny) || map[ny][nx] !== TILE_TREE) continue;
+          if (!isTileExplored(nx, ny)) continue;
           const k = nx + ',' + ny;
           if (usedTrees.has(k) || isTreeClaimedByOther(nx, ny, u.id)) continue;
           tree = { x: nx, y: ny };
@@ -103,6 +104,7 @@ function setGroupMineTarget(workerList, worldX, worldY) {
         for (let dx = -r; dx <= r; dx++) {
           const nx = cx + dx, ny = cy + dy;
           if (!hasMineral(nx, ny) || !isWalkableTile(nx, ny)) continue;
+          if (!isTileExplored(nx, ny)) continue;
           const k = nx + ',' + ny;
           if (used.has(k) || isMineralClaimedByOther(nx, ny, u.id)) continue;
           spot = { x: nx, y: ny };
@@ -129,6 +131,7 @@ function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
     const cur = queue.shift();
     if (cur.d > maxRange) break;
     if (inBounds(cur.x, cur.y) && map[cur.y][cur.x] === TILE_TREE &&
+        isTileExplored(cur.x, cur.y) &&
         !isTreeClaimedByOther(cur.x, cur.y, unitId))
       return { x: cur.x, y: cur.y };
     for (const [dx, dy] of dirs) {

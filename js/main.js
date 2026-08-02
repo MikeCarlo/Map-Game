@@ -89,6 +89,8 @@ function gameLoop(now) {
 
   if (separateIdleUnits()) needDraw = true;
 
+  updateVisibility();
+
   if (selectedUnitIds.length || selectedUnitId != null || huts.length || countEnemies() || deathMarks.length) needDraw = true;
 
   if (needDraw) draw();
@@ -296,6 +298,7 @@ window.addEventListener('resize', resize);
   units = [spawnWorkerBesideBase(baseSpot)];
   armories = [];
   deathMarks = [];
+  updateVisibility();
   cameraPanEnabled = true;
   if (typeof updateCameraModeIndicator === 'function') updateCameraModeIndicator();
   resize();

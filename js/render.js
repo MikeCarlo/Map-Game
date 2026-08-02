@@ -12,6 +12,7 @@ function resize() {
 function drawJetPulses() {
   if (!jetPulses || !jetPulses.length) return;
   for (const p of jetPulses) {
+    if (!isPointVisible(p.x, p.y)) continue;
     const t = Math.min(1, p.age / p.maxAge);
     const expand = 1 - Math.pow(1 - t, 2);
     const maxR = (p.radius + 1.2) * TILE * zoom;
@@ -110,6 +111,7 @@ function drawSelectModeFrame() {
 function drawDeathMarks() {
   if (!deathMarks || !deathMarks.length) return;
   for (const m of deathMarks) {
+    if (!isPointVisible(m.x, m.y)) continue;
     const t = Math.min(1, m.age / m.maxAge);
     const alpha = (1 - t) * 0.45;
     if (alpha <= 0.01) continue;
@@ -216,6 +218,13 @@ function draw() {
 
   for (let ty = startTY; ty < endTY; ty++) {
     for (let tx = startTX; tx < endTX; tx++) {
+      const sxU = camX + tx * TILE * zoom, syU = camY + ty * TILE * zoom;
+      const twU = Math.ceil(TILE * zoom), thU = Math.ceil(TILE * zoom);
+      if (!isTileExplored(tx, ty)) {
+        ctx.fillStyle = FOG_UNEXPLORED_COLOR;
+        ctx.fillRect(Math.floor(sxU), Math.floor(syU), twU, thU);
+        continue;
+      }
       const tile = map[ty][tx];
       let color = tileColor(tx, ty, tile);
       if (mineralMap && mineralMap[ty][tx] > 0 && (tile === TILE_DIRT || tile === TILE_STUMP)) {
@@ -236,6 +245,11 @@ function draw() {
         const inset = Math.max(1, Math.floor(zoom * 1.5));
         ctx.fillRect(Math.floor(sx + inset), Math.floor(sy + inset), Math.max(1, tw - inset * 2), Math.max(1, th - inset * 2));
       }
+      // Explored but out of sight: remembered terrain, shaded
+      if (!isTileVisible(tx, ty)) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${FOG_DIM_ALPHA})`;
+        ctx.fillRect(Math.floor(sx), Math.floor(sy), tw, th);
+      }
     }
   }
 
@@ -250,6 +264,7 @@ function draw() {
     const size = TILE * zoom;
     ctx.fillStyle = `rgba(0,0,0,${(1 - pct) * 0.35})`;
     for (const t of liveTilesInFootprint(hut.x, hut.y, HUT_FOOTPRINT)) {
+      if (!isTileVisible(t.x, t.y)) continue; // damage state is live information
       const sx = camX + t.x * TILE * zoom;
       const sy = camY + t.y * TILE * zoom;
       ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
@@ -273,7 +288,7 @@ function draw() {
     ctx.strokeRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
   }
 
-  if (selectedHut) {
+  if (selectedHut && isTileExplored(selectedHut.x, selectedHut.y)) {
     const sx = camX + selectedHut.x * TILE * zoom;
     const sy = camY + selectedHut.y * TILE * zoom;
     const size = HUT_SIZE * TILE * zoom;
@@ -303,6 +318,7 @@ function draw() {
   drawDefendPosts(pulse);
 
   for (const u of units) {
+    if (!isUnitRevealed(u)) continue; // enemies only where you can see
     if (u.goalX !== null && u.unitType !== 'enemy') {
       const tx = camX + u.goalX * TILE * zoom, ty = camY + u.goalY * TILE * zoom;
       ctx.beginPath(); ctx.arc(tx, ty, Math.max(4, 3 * zoom), 0, Math.PI * 2);

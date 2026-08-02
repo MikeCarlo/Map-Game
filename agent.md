@@ -27,7 +27,7 @@ When editing actions logic:
 Order matters (globals, no modules):
 
 ```
-config.js → state.js → map.js → pathfinding.js
+config.js → state.js → map.js → fog.js → pathfinding.js
 → actions1.js → actions2.js → actions3.js → actions4.js → actions5.js
 → buildings.js → combat.js → ui.js → render.js → input.js → main.js
 ```
@@ -41,6 +41,7 @@ config.js → state.js → map.js → pathfinding.js
 | `js/config.js` | Map size, tile IDs, colors, HP/combat/repair constants |
 | `js/state.js` | Global state, unit factory, selection, `clearUnitOrders` |
 | `js/map.js` | Procedural generation, walkability, resources, jets |
+| `js/fog.js` | Fog of war: `visibleMap` / `exploredMap`, sight radii, `updateVisibility` |
 | `js/pathfinding.js` | A*, `applyPath`, stand-tile occupancy helpers |
 | `js/actions1.js` | Move, group move/cut/mine, tree helpers |
 | `js/actions2.js` | Cut / harvest wood (one density → return to base) |
@@ -65,6 +66,7 @@ config.js → state.js → map.js → pathfinding.js
 - **Defend:** `defending` + `defendX/defendY` post held in `combat.js`; `updateDefender` engages enemies inside `DEFEND_RADIUS` of the post, drops them past `DEFEND_LEASH`, and walks back. Anything that calls `clearUnitOrders` (Move / Attack / Cancel) releases the post, so re-engaging from a post goes through `engageFromPost`, which restores the post afterwards.
 - **Harvest pattern:** one resource unit per trip; worker must return beside base to deposit, then continue.
 - **Buildings:** multi-tile footprints; **per-tile HP** in `buildingHpMap`. Color lerps toward grey as HP drops. Aggregate % shown when selecting base/armory.
+- **Fog of war:** two `Uint8Array(MAP_W * MAP_H)` layers in `fog.js`. `updateVisibility()` runs once per frame from `main.js` (~0.1 ms) — it clears `visibleMap` and re-stamps a disc per player unit / base segment / armory; `exploredMap` only ever grows. Anything that reveals live state (enemy units, jet pulses, death stains, hut damage, enemy counts in the info bar) must check `isTileVisible` / `isPointVisible`; anything the player could plausibly remember (terrain, resource auto-search targets, hut selection) checks `isTileExplored`. `FOG_ENABLED = false` in `config.js` turns the whole thing off. **Known gap:** A* still paths on the true map, so units route around unseen obstacles.
 - **Occupancy:** idle units cannot share a stand tile (`isTileBlockedForStand` / goal reservation).
 - **Mobile SELECT mode:** double-tap empty ground toggles pan vs locked; long-press drag box-select only when locked. Grey dashed viewport border in SELECT mode.
 

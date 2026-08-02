@@ -99,6 +99,15 @@ const SOLDIER_ATTACK_RANGE = 1.35;
 // neighbour (1.41) must still count as adjacent.
 const SOLDIER_BUILDING_REACH = 1.95;
 const ATTACK_REPATH_INTERVAL = 0.6;
+// Fog of war — sight radii in tiles. Flip FOG_ENABLED off to see the whole map.
+let FOG_ENABLED = true;
+const SIGHT_WORKER = 7;
+const SIGHT_SOLDIER = 9;
+const SIGHT_BASE = 11;
+const SIGHT_ARMORY = 9;
+const FOG_UNEXPLORED_COLOR = '#0c0c10';
+const FOG_DIM_ALPHA = 0.5;   // shade over explored ground that is out of sight
+
 // Defend: a soldier holds a post and engages enemies that come near it
 const DEFEND_RADIUS = 7;          // enemies this close to the post get engaged
 const DEFEND_LEASH = 9;           // stop chasing once the target passes this

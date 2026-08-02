@@ -112,10 +112,11 @@ function updateUI() {
   if (selectedHut) {
     const h = findHutAt(selectedHut.x, selectedHut.y);
     document.getElementById('mapActions').style.display = 'flex';
-    if (h) {
+    if (h && isTileVisible(h.x, h.y)) {
       const st = hutHealthStats(h);
-      info.textContent = `Enemy Hut — HP ${st.cur}/${st.max} · Enemies ${countEnemies()}`;
+      info.textContent = `Enemy Hut — HP ${st.cur}/${st.max} · Enemies ${countVisibleEnemies()}`;
     }
+    else if (h) info.textContent = 'Enemy Hut — out of sight (last known position)';
     else info.textContent = 'Enemy hut destroyed';
     return;
   }
@@ -257,11 +258,13 @@ function updateUI() {
   const parts = [];
   if (playerBase) parts.push(workerCapNote());
   if (armories.length) parts.push(soldierCapNote());
-  if (huts.length) {
-    const st = hutHealthStats(huts[0]);
+  const knownHut = huts.find(h => isTileVisible(h.x, h.y));
+  if (knownHut) {
+    const st = hutHealthStats(knownHut);
     parts.push(`Hut HP ${st.cur}/${st.max}`);
   }
-  if (countEnemies()) parts.push(`Enemies ${countEnemies()}`);
+  const seenEnemies = countVisibleEnemies();
+  if (seenEnemies) parts.push(`Enemies ${seenEnemies} in sight`);
   const cap = parts.length ? ' — ' + parts.join(' · ') : '';
   const panHint = cameraPanEnabled
     ? 'Double-tap empty = lock camera · Double-tap unit = select similar'

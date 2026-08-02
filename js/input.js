@@ -16,6 +16,7 @@ function enemyAtScreen(clientX, clientY) {
   for (let i = units.length - 1; i >= 0; i--) {
     const u = units[i];
     if (u.unitType !== 'enemy') continue;
+    if (!isPointVisible(u.x, u.y)) continue;
     const sx = camX + u.x * TILE * zoom, sy = camY + u.y * TILE * zoom;
     if (Math.hypot(clientX - sx, clientY - sy) < SELECT_RADIUS + Math.max(0, zoom * 2))
       return u;
@@ -253,7 +254,7 @@ function handleTap(clientX, clientY) {
       updateUI(); draw(); return;
     }
   }
-  if (inBounds(tx, ty) && map[ty][tx] === TILE_HUT) {
+  if (inBounds(tx, ty) && map[ty][tx] === TILE_HUT && isTileExplored(tx, ty)) {
     const h = findHutAt(tx, ty);
     if (h) {
       selectedHut = { x: h.x, y: h.y };

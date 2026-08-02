@@ -55,6 +55,46 @@ Resources must be carried back to a base one unit at a time. Workers move slower
 
 ---
 
+## Fog of war
+
+You start seeing only the ground around your base. The rest of the world is
+black until someone walks into it.
+
+Every tile is in one of three states:
+
+| State | Looks like | You see |
+|-------|------------|---------|
+| **Never seen** | Solid black | Nothing at all — terrain, resources and huts are all hidden |
+| **Seen before, out of sight** | Terrain, shaded dark | The land as you remember it — but no enemies, no live activity |
+| **In sight now** | Full colour | Everything, including enemy units and what they are doing |
+
+Sight radius, in tiles:
+
+| Source | Radius |
+|--------|--------|
+| Worker | 7 |
+| Soldier | 9 |
+| Base segment | 11 |
+| Armory | 9 |
+
+Enemies and their huts give you no vision — only your own units and buildings
+do. Scouting is the way to find the enemy hut.
+
+Consequences worth knowing:
+
+- Enemies standing in the dark are not drawn, cannot be tapped, and are not
+  counted in the info bar
+- You cannot order an attack on a hut or enemy you have never seen
+- Workers only auto-target trees and Virelium on ground you have explored, so a
+  brand-new map may need a scouting trip before there is much to harvest
+- **New Map** wipes everything you had explored
+
+Pathfinding still routes around terrain you have not discovered yet — units
+know the shape of the map even where you don't. Set `FOG_ENABLED = false` in
+`js/config.js` to reveal the whole map.
+
+---
+
 ## Controls
 
 ### Camera
@@ -200,6 +240,7 @@ css/style.css       # full-screen mobile UI
 js/config.js        # tiles, colors, speeds, footprint, weights
 js/state.js         # units, selection, claims, resources
 js/map.js           # generation + walkability + elevation
+js/fog.js           # fog of war: explored / visible tile layers
 js/pathfinding.js   # A* pathfinding
 js/actions.js       # move / cut / mine / build / tunnel / train
 js/ui.js            # bottom bar labels & info text

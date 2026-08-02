@@ -83,16 +83,16 @@ function setAttackAtPoint(u, worldX, worldY) {
   if (!u || u.unitType !== 'soldier') return false;
   let bestEnemy = null, bestD = Infinity;
   for (const e of units) {
-    if (e.unitType !== 'enemy') continue;
+    if (e.unitType !== 'enemy' || !isPointVisible(e.x, e.y)) continue;
     const d = Math.hypot(e.x - worldX, e.y - worldY);
     if (d < 1.6 && d < bestD) { bestD = d; bestEnemy = e; }
   }
   if (bestEnemy) return setAttackEnemy(u, bestEnemy);
   const tx = Math.floor(worldX), ty = Math.floor(worldY);
-  const hut = findHutAt(tx, ty);
+  const hut = isTileExplored(tx, ty) ? findHutAt(tx, ty) : null;
   if (hut) return setAttackHut(u, hut);
   for (const e of units) {
-    if (e.unitType !== 'enemy') continue;
+    if (e.unitType !== 'enemy' || !isPointVisible(e.x, e.y)) continue;
     const d = Math.hypot(e.x - worldX, e.y - worldY);
     if (d < 8 && d < bestD) { bestD = d; bestEnemy = e; }
   }
@@ -100,6 +100,7 @@ function setAttackAtPoint(u, worldX, worldY) {
   let bestHut = null;
   bestD = Infinity;
   for (const h of huts) {
+    if (!isTileExplored(h.x, h.y)) continue; // can't order an attack on an unseen hut
     const d = Math.hypot(h.x + HUT_SIZE / 2 - worldX, h.y + HUT_SIZE / 2 - worldY);
     if (d < 10 && d < bestD) { bestD = d; bestHut = h; }
   }

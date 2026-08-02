@@ -117,6 +117,7 @@ function makeUnit(x, y, unitType = 'worker') {
     mining: false, mineTimer: 0, mineTX: null, mineTY: null,
     carryingVirelium: false, returningMineral: false,
     building: false, buildKind: null, buildTX: null, buildTY: null,
+    repairing: false, repairTimer: 0, repairTX: null, repairTY: null,
     tunneling: false,
     tunnelStart: null,
     tunnelEnd: null,
@@ -213,7 +214,7 @@ function isUnitIdleForSelect(u) {
   if (!u) return false;
   if (u.unitType === 'enemy') return false;
   if (u.path && u.path.length && u.pathIndex < u.path.length) return false;
-  if (u.harvesting || u.mining || u.building || u.tunneling || u.attacking) return false;
+  if (u.harvesting || u.mining || u.building || u.repairing || u.tunneling || u.attacking) return false;
   if (u.carryingWood || u.carryingVirelium) return false;
   return true;
 }
@@ -239,6 +240,7 @@ function clearUnitOrders(u) {
   u.mining = false; u.mineTimer = 0; u.mineTX = u.mineTY = null;
   u.returningMineral = false; u.carryingVirelium = false;
   u.building = false; u.buildKind = null; u.buildTX = u.buildTY = null;
+  u.repairing = false; u.repairTimer = 0; u.repairTX = u.repairTY = null;
   u.tunneling = false; u.tunnelStart = null; u.tunnelEnd = null; u.tunnelCarvePath = null;
   u.carveTimer = 0; u.carveTileX = u.carveTileY = null;
   u.attacking = false; u.attackTargetId = null; u.attackHutId = null; u.attackTimer = 0;

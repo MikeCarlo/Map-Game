@@ -19,7 +19,7 @@ let fullSelectionIds = [];
 let selectionFilter = 'all';
 let selectedBase = null;
 let selectedArmory = null;
-let selectedHut = null; // { x, y } origin
+let selectedHut = null;
 let actionMode = null;
 let woodInBase = 0;
 let vireliumInBase = 0;
@@ -28,9 +28,10 @@ let claimedMinerals = new Map();
 
 let playerBase = null;
 let armories = [];
-/** Enemy huts: { id, x, y, hp, maxHp, spawnTimer } */
 let huts = [];
 let nextHutId = 1;
+/** Fading ground stains: { x, y, age, maxAge, unitType } */
+let deathMarks = [];
 
 let cameraPanEnabled = true;
 
@@ -123,12 +124,11 @@ function makeUnit(x, y, unitType = 'worker') {
     carveTimer: 0,
     carveTileX: null,
     carveTileY: null,
-    // combat
     hp: null,
     maxHp: null,
     attacking: false,
-    attackTargetId: null,   // unit id
-    attackHutId: null,      // hut id
+    attackTargetId: null,
+    attackHutId: null,
     attackTimer: 0
   };
   if (unitType === 'soldier') {

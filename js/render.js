@@ -107,17 +107,48 @@ function drawSelectModeFrame() {
   ctx.restore();
 }
 
-function drawHpBar(cx, cy, radius, hp, maxHp) {
-  if (hp == null || maxHp == null || hp >= maxHp) return;
-  const bw = Math.max(12, radius * 2.2);
-  const bh = Math.max(3, 2.5 * zoom);
-  const bx = cx - bw / 2;
-  const by = cy - radius - bh - 3;
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(bx, by, bw, bh);
-  const pct = Math.max(0, hp / maxHp);
-  ctx.fillStyle = pct > 0.5 ? '#66BB6A' : pct > 0.25 ? '#FFA726' : '#EF5350';
-  ctx.fillRect(bx, by, bw * pct, bh);
+function drawDeathMarks() {
+  if (!deathMarks || !deathMarks.length) return;
+  for (const m of deathMarks) {
+    const t = Math.min(1, m.age / m.maxAge);
+    const alpha = (1 - t) * 0.45;
+    if (alpha <= 0.01) continue;
+    const cx = camX + m.x * TILE * zoom;
+    const cy = camY + m.y * TILE * zoom;
+    const radius = Math.max(5, 4.5 * zoom) * (1 - t * 0.15);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180, 180, 185, ${alpha})`;
+    ctx.fill();
+  }
+}
+
+/** Draw unit body as a pie-arc: full circle at full HP, half circle at 50%, etc. */
+function drawUnitBody(cx, cy, radius, fillStyle, hp, maxHp) {
+  const pct = (hp != null && maxHp > 0)
+    ? Math.max(0.08, Math.min(1, hp / maxHp))
+    : 1;
+  ctx.fillStyle = fillStyle;
+  if (pct >= 0.999) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  // Arc from top (-PI/2), clockwise through pct of full circle
+  const start = -Math.PI / 2;
+  const end = start + pct * Math.PI * 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, radius, start, end, false);
+  ctx.closePath();
+  ctx.fill();
+  // Soft outline so the missing slice is readable
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
 function draw() {
@@ -159,18 +190,17 @@ function draw() {
   }
 
   drawJetPulses();
+  drawDeathMarks();
 
-  // Hut HP bars above hut origin
+  // Hut damage: darken slightly instead of a bar
   for (const hut of huts) {
-    const hx = camX + (hut.x + HUT_SIZE / 2) * TILE * zoom;
-    const hy = camY + hut.y * TILE * zoom;
-    const bw = HUT_SIZE * TILE * zoom * 0.9;
-    const bh = Math.max(3, 3 * zoom);
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(hx - bw / 2, hy - 6, bw, bh);
+    if (hut.hp >= hut.maxHp) continue;
     const pct = Math.max(0, hut.hp / hut.maxHp);
-    ctx.fillStyle = '#EF5350';
-    ctx.fillRect(hx - bw / 2, hy - 6, bw * pct, bh);
+    const sx = camX + hut.x * TILE * zoom;
+    const sy = camY + hut.y * TILE * zoom;
+    const size = HUT_SIZE * TILE * zoom;
+    ctx.fillStyle = `rgba(0,0,0,${(1 - pct) * 0.35})`;
+    ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
   }
 
   if (selectedBase) {
@@ -233,11 +263,13 @@ function draw() {
       ctx.strokeStyle = `rgba(255, 238, 85, ${0.2 + pulse * 0.2})`;
       ctx.lineWidth = 1.5; ctx.stroke();
     }
-    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    if (u.unitType === 'enemy') ctx.fillStyle = '#43A047';
-    else if (u.unitType === 'soldier') ctx.fillStyle = '#37474F';
-    else ctx.fillStyle = '#E53935';
-    ctx.fill();
+
+    let fill = '#E53935';
+    if (u.unitType === 'enemy') fill = '#43A047';
+    else if (u.unitType === 'soldier') fill = '#37474F';
+
+    drawUnitBody(cx, cy, radius, fill, u.hp, u.maxHp);
+
     if (u.unitType === 'soldier') {
       ctx.beginPath();
       ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
@@ -245,7 +277,6 @@ function draw() {
       ctx.lineWidth = Math.max(1, zoom);
       ctx.stroke();
     } else if (u.unitType === 'enemy') {
-      // fangs / eyes
       ctx.fillStyle = '#1B5E20';
       ctx.beginPath();
       ctx.arc(cx - radius * 0.3, cy - radius * 0.15, radius * 0.22, 0, Math.PI * 2);
@@ -255,7 +286,6 @@ function draw() {
       ctx.beginPath(); ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
     }
-    if (u.hp != null && u.maxHp != null) drawHpBar(cx, cy, radius, u.hp, u.maxHp);
     if (u.carryingWood) {
       const wr = Math.max(3, 2.5 * zoom);
       ctx.fillStyle = '#A1887F';

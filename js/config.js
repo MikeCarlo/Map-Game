@@ -56,7 +56,6 @@ function tileColor(tx, ty, tile) {
   return COLORS[tile];
 }
 
-// Base: 3×3 segments, 3 workers per level
 const BASE_SEGMENT_SIZE = 3;
 const WORKERS_PER_BASE_LEVEL = 3;
 const BASE_FOOTPRINT = [];
@@ -66,7 +65,6 @@ const BASE_FOOTPRINT = [];
       BASE_FOOTPRINT.push({ dx, dy });
 })();
 
-// Armory: 2×2 building, up to 5 soldiers each
 const ARMORY_SIZE = 2;
 const SOLDIERS_PER_ARMORY = 5;
 const ARMORY_FOOTPRINT = [];
@@ -76,7 +74,6 @@ const ARMORY_FOOTPRINT = [];
       ARMORY_FOOTPRINT.push({ dx, dy });
 })();
 
-// Enemy hut: 2×2
 const HUT_SIZE = 2;
 const HUT_FOOTPRINT = [];
 (function () {
@@ -92,11 +89,12 @@ const ENEMY_MAX_HP = 12;
 const SOLDIER_MAX_HP = 20;
 const SOLDIER_ATTACK_DAMAGE = 4;
 const SOLDIER_ATTACK_INTERVAL = 0.85;
-const SOLDIER_ATTACK_RANGE = 1.35; // tiles (adjacent + a bit)
+const SOLDIER_ATTACK_RANGE = 1.35;
 const ENEMY_MOVE_SPEED = 3.2;
 const ENEMY_AGGRO_RANGE = 18;
 const ENEMY_ATTACK_DAMAGE = 2;
 const ENEMY_ATTACK_INTERVAL = 1.1;
+const DEATH_MARK_DURATION = 30; // seconds — light grey ground stain fade
 
 const MOVE_SPEED = 5.5;
 const SOLDIER_MOVE_SPEED = 6.5;

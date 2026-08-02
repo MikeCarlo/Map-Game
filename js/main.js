@@ -36,6 +36,11 @@ function gameLoop(now) {
       if (u.mineTimer <= 0) finishMine(u);
       needDraw = true;
     }
+    if (u.repairing && u.repairTimer > 0) {
+      u.repairTimer -= dt;
+      if (u.repairTimer <= 0) finishRepair(u);
+      needDraw = true;
+    }
     if (u.tunneling && u.carveTimer > 0) {
       u.carveTimer -= dt;
       if (u.carveTimer <= 0) {
@@ -64,6 +69,7 @@ function gameLoop(now) {
           else if (u.harvesting) startHarvestOnArrival(u);
           else if (u.mining) startMineOnArrival(u);
           else if (u.building) finishBuild(u);
+          else if (u.repairing) startRepairOnArrival(u);
         }
       } else {
         const step = Math.min(getUnitSpeed(u) * dt, dist);
@@ -157,6 +163,16 @@ document.getElementById('btnGroupMine').addEventListener('click', () => {
   }
   updateUI(); draw();
 });
+document.getElementById('btnGroupRepair').addEventListener('click', () => {
+  const list = getSelectedUnits().filter(u => u.unitType === 'worker');
+  if (!list.length) return;
+  if (actionMode === 'repairTarget') actionMode = null;
+  else {
+    actionMode = 'repairTarget';
+    for (const u of list) clearUnitOrders(u);
+  }
+  updateUI(); draw();
+});
 document.getElementById('btnCut').addEventListener('click', () => {
   const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
   if (actionMode === 'cutTarget') actionMode = null;
@@ -167,6 +183,12 @@ document.getElementById('btnMine').addEventListener('click', () => {
   const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
   if (actionMode === 'mineTarget') actionMode = null;
   else { actionMode = 'mineTarget'; clearUnitOrders(u); }
+  updateUI(); draw();
+});
+document.getElementById('btnRepair').addEventListener('click', () => {
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'worker') return;
+  if (actionMode === 'repairTarget') actionMode = null;
+  else { actionMode = 'repairTarget'; clearUnitOrders(u); }
   updateUI(); draw();
 });
 document.getElementById('btnTunnel').addEventListener('click', () => {

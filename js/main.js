@@ -23,6 +23,7 @@ function gameLoop(now) {
   if (updateJets(dt)) needDraw = true;
   if (updateHuts(dt)) needDraw = true;
   if (updateCombat(dt)) needDraw = true;
+  if (updateDeathMarks(dt)) needDraw = true;
 
   for (const u of units) {
     if (u.harvesting && u.harvestTimer > 0 && !u.carryingWood) {
@@ -82,7 +83,7 @@ function gameLoop(now) {
 
   if (separateIdleUnits()) needDraw = true;
 
-  if (selectedUnitIds.length || selectedUnitId != null || huts.length || countEnemies()) needDraw = true;
+  if (selectedUnitIds.length || selectedUnitId != null || huts.length || countEnemies() || deathMarks.length) needDraw = true;
 
   if (needDraw) draw();
   requestAnimationFrame(gameLoop);
@@ -256,6 +257,7 @@ window.addEventListener('resize', resize);
   const { baseSpot } = generateMap();
   units = [spawnWorkerBesideBase(baseSpot)];
   armories = [];
+  deathMarks = [];
   cameraPanEnabled = true;
   if (typeof updateCameraModeIndicator === 'function') updateCameraModeIndicator();
   resize();

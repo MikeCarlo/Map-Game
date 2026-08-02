@@ -101,8 +101,28 @@ function destroyHut(hut) {
   updateUI();
 }
 
+function spawnDeathMark(u) {
+  if (!u) return;
+  deathMarks.push({
+    x: u.x,
+    y: u.y,
+    age: 0,
+    maxAge: DEATH_MARK_DURATION,
+    unitType: u.unitType
+  });
+}
+
+function updateDeathMarks(dt) {
+  if (!deathMarks.length) return false;
+  for (const m of deathMarks) m.age += dt;
+  const before = deathMarks.length;
+  deathMarks = deathMarks.filter(m => m.age < m.maxAge);
+  return true; // always redraw while any exist or just faded
+}
+
 function removeUnit(u) {
   if (!u) return;
+  spawnDeathMark(u);
   releaseAllClaimsForUnit(u.id);
   for (const other of units) {
     if (other.attackTargetId === u.id) {

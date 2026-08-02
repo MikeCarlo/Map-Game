@@ -106,6 +106,8 @@ button:disabled {
 #btnMove.active, #btnSoldierMove.active, #btnGroupMove.active { background: #c62828; border-color: #ef5350; }
 #btnSoldierAttack, #btnGroupAttack { background: #c62828; border-color: #ef5350; }
 #btnSoldierAttack.active, #btnGroupAttack.active { background: #ff8a80; border-color: #ffcdd2; color: #111; }
+#btnSoldierDefend, #btnGroupDefend { background: #1565c0; border-color: #42a5f5; }
+#btnSoldierDefend.active, #btnGroupDefend.active { background: #90caf9; border-color: #e3f2fd; color: #111; }
 #btnCut, #btnGroupCut { background: #6d4c41; border-color: #8d6e63; }
 #btnCut.active, #btnGroupCut.active { background: #c62828; border-color: #ef5350; }
 #btnBuild { background: #6a1b9a; border-color: #9c27b0; }

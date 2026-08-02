@@ -123,6 +123,22 @@ document.getElementById('btnSoldierAttack').addEventListener('click', () => {
   else { actionMode = 'attackTarget'; clearUnitOrders(u); }
   updateUI(); draw();
 });
+document.getElementById('btnSoldierDefend').addEventListener('click', () => {
+  const u = getSelectedUnit(); if (!u || u.unitType !== 'soldier') return;
+  if (actionMode === 'defendTarget') actionMode = null;
+  else { actionMode = 'defendTarget'; clearUnitOrders(u); }
+  updateUI(); draw();
+});
+document.getElementById('btnGroupDefend').addEventListener('click', () => {
+  const list = getSelectedUnits().filter(u => u.unitType === 'soldier');
+  if (!list.length) return;
+  if (actionMode === 'defendTarget') actionMode = null;
+  else {
+    actionMode = 'defendTarget';
+    for (const u of list) clearUnitOrders(u);
+  }
+  updateUI(); draw();
+});
 document.getElementById('btnGroupMove').addEventListener('click', () => {
   const list = getSelectedUnits();
   if (list.length < 1) return;

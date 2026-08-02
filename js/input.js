@@ -148,6 +148,21 @@ function handleTap(clientX, clientY) {
     return;
   }
 
+  if (actionMode === 'defendTarget' && selected.length) {
+    const tile = screenToTile(clientX, clientY);
+    const soldiers = selected.filter(u => u.unitType === 'soldier');
+    if (soldiers.length > 1) {
+      if (setGroupDefendPost(soldiers, tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    } else if (soldiers.length === 1) {
+      if (setDefendPost(soldiers[0], tile.x, tile.y)) {
+        actionMode = null; updateUI(); draw();
+      }
+    }
+    return;
+  }
+
   if (actionMode === 'cutTarget' && selected.length) {
     const tile = screenToTile(clientX, clientY);
     const workers = selected.filter(u => u.unitType === 'worker');

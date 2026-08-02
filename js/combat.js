@@ -107,6 +107,117 @@ function setAttackAtPoint(u, worldX, worldY) {
   return false;
 }
 
+/**
+ * Defend: the soldier holds a post, engages enemies that come within
+ * DEFEND_RADIUS of it, and walks back once the fight is over.
+ */
+function setDefendPost(u, worldX, worldY) {
+  if (!u || u.unitType !== 'soldier') return false;
+  let gx = Math.floor(worldX), gy = Math.floor(worldY);
+  if (!isWalkableTile(gx, gy)) {
+    const free = findFreeStandTile(gx + 0.5, gy + 0.5, u.id, 10);
+    if (!free) return false;
+    gx = free.x; gy = free.y;
+  }
+  clearUnitOrders(u);
+  u.defending = true;
+  u.defendX = gx + 0.5;
+  u.defendY = gy + 0.5;
+  u.defendRepathTimer = 0;
+  const sx = Math.floor(u.x), sy = Math.floor(u.y);
+  if (sx === gx && sy === gy) return true;
+  const tiles = aStar(sx, sy, gx, gy, false) || pathToClosest(sx, sy, gx, gy);
+  applyPath(u, tiles);
+  return true; // the post stands even if the walk there fails; the soldier retries
+}
+
+/** Spread the group over free tiles around the tapped spot, one post each. */
+function setGroupDefendPost(soldiers, worldX, worldY) {
+  if (!soldiers || !soldiers.length) return false;
+  const cx = Math.floor(worldX), cy = Math.floor(worldY);
+  const taken = new Set();
+  function takePostNear() {
+    for (let r = 0; r <= 10; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (r > 0 && Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          const nx = cx + dx, ny = cy + dy, k = nx + ',' + ny;
+          if (!isWalkableTile(nx, ny) || taken.has(k)) continue;
+          taken.add(k);
+          return { x: nx, y: ny };
+        }
+      }
+    }
+    return null;
+  }
+  const order = soldiers.slice().sort((a, b) =>
+    Math.hypot(a.x - worldX, a.y - worldY) - Math.hypot(b.x - worldX, b.y - worldY));
+  let any = false;
+  for (const u of order) {
+    if (u.unitType !== 'soldier') continue;
+    const post = takePostNear();
+    if (!post) continue;
+    if (setDefendPost(u, post.x + 0.5, post.y + 0.5)) any = true;
+  }
+  return any;
+}
+
+/** Nearest enemy threatening the post (or already on top of the defender). */
+function findIntruder(u) {
+  let best = null, bestD = Infinity;
+  for (const e of units) {
+    if (e.unitType !== 'enemy') continue;
+    const dPost = Math.hypot(e.x - u.defendX, e.y - u.defendY);
+    const dSelf = Math.hypot(e.x - u.x, e.y - u.y);
+    if (dPost > DEFEND_RADIUS && dSelf > SOLDIER_ATTACK_RANGE + 1) continue;
+    if (dPost < bestD) { bestD = dPost; best = e; }
+  }
+  return best;
+}
+
+/** Attack an intruder without losing the post. */
+function engageFromPost(u, target) {
+  const px = u.defendX, py = u.defendY;
+  const ok = setAttackEnemy(u, target); // clears orders, including the post
+  u.defending = true;
+  u.defendX = px; u.defendY = py;
+  return ok;
+}
+
+function returnToPost(u, dt) {
+  if (Math.hypot(u.x - u.defendX, u.y - u.defendY) <= DEFEND_POST_SLACK) return false;
+  u.defendRepathTimer = (u.defendRepathTimer || 0) - dt;
+  if (u.path.length || u.defendRepathTimer > 0) return false;
+  u.defendRepathTimer = DEFEND_REPATH_INTERVAL;
+  let gx = Math.floor(u.defendX), gy = Math.floor(u.defendY);
+  if (isTileBlockedForStand(gx, gy, u.id)) {
+    const free = findFreeStandTile(u.defendX, u.defendY, u.id, 4);
+    if (!free) return false;
+    gx = free.x; gy = free.y;
+  }
+  const sx = Math.floor(u.x), sy = Math.floor(u.y);
+  if (sx === gx && sy === gy) return false;
+  const tiles = aStar(sx, sy, gx, gy, false) || pathToClosest(sx, sy, gx, gy);
+  return applyPath(u, tiles);
+}
+
+/** One tick of defend duty. Returns true if anything visible changed. */
+function updateDefender(u, dt) {
+  if (!u.defending || u.defendX == null) return false;
+  if (u.attackHutId != null) return false; // player ordered a hut attack instead
+  if (u.attacking && u.attackTargetId != null) {
+    const target = units.find(e => e.id === u.attackTargetId);
+    const strayed = target &&
+      Math.hypot(target.x - u.defendX, target.y - u.defendY) > DEFEND_LEASH;
+    if (target && !strayed) return false; // keep fighting
+    u.attacking = false; u.attackTargetId = null; u.attackTimer = 0;
+    u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
+  }
+  const intruder = findIntruder(u);
+  if (intruder) return engageFromPost(u, intruder);
+  return returnToPost(u, dt);
+}
+
 function setGroupAttackAtPoint(soldiers, worldX, worldY) {
   if (!soldiers || !soldiers.length) return false;
   let any = false;
@@ -203,7 +314,9 @@ function damageUnit(u, amount) {
 function updateCombat(dt) {
   let changed = false;
   for (const u of units.slice()) {
-    if (u.unitType !== 'soldier' || !u.attacking) continue;
+    if (u.unitType !== 'soldier') continue;
+    if (u.defending && updateDefender(u, dt)) changed = true;
+    if (!u.attacking) continue;
     if (u.attackHutId != null) {
       const hut = huts.find(h => h.id === u.attackHutId);
       if (!hut) { u.attacking = false; u.attackHutId = null; continue; }
@@ -233,7 +346,8 @@ function updateCombat(dt) {
       const dist = Math.hypot(u.x - target.x, u.y - target.y);
       if (dist > SOLDIER_ATTACK_RANGE) {
         if (!u.path.length || Math.hypot((u.goalX || 0) - target.x, (u.goalY || 0) - target.y) > 1.5) {
-          setAttackEnemy(u, target);
+          if (u.defending) engageFromPost(u, target);
+          else setAttackEnemy(u, target);
         }
         continue;
       }

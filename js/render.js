@@ -123,6 +123,56 @@ function drawDeathMarks() {
   }
 }
 
+/**
+ * Defend posts: a marker per defending soldier, plus the guard radius for the
+ * selected ones so the player can see what ground is covered.
+ */
+function drawDefendPosts(pulse) {
+  for (const u of units) {
+    if (!u.defending || u.defendX == null) continue;
+    const px = camX + u.defendX * TILE * zoom;
+    const py = camY + u.defendY * TILE * zoom;
+    const selected = isUnitSelected(u.id);
+
+    if (selected) {
+      ctx.beginPath();
+      ctx.arc(px, py, DEFEND_RADIUS * TILE * zoom, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(66, 165, 245, ${0.05 + pulse * 0.03})`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(66, 165, 245, ${0.35 + pulse * 0.2})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    const r = Math.max(4, 3 * zoom);
+    ctx.beginPath();
+    ctx.moveTo(px, py - r);
+    ctx.lineTo(px + r, py);
+    ctx.lineTo(px, py + r);
+    ctx.lineTo(px - r, py);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(66, 165, 245, ${selected ? 0.55 : 0.3})`;
+    ctx.fill();
+    ctx.strokeStyle = '#42A5F5';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // tether from the soldier back to its post while it is away
+    if (Math.hypot(u.x - u.defendX, u.y - u.defendY) > DEFEND_POST_SLACK) {
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(camX + u.x * TILE * zoom, camY + u.y * TILE * zoom);
+      ctx.strokeStyle = 'rgba(66, 165, 245, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
 /** Draw unit body as a pie-arc: full circle at full HP, half circle at 50%, etc. */
 function drawUnitBody(cx, cy, radius, fillStyle, hp, maxHp) {
   const pct = (hp != null && maxHp > 0)
@@ -250,6 +300,8 @@ function draw() {
 
   const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 220);
 
+  drawDefendPosts(pulse);
+
   for (const u of units) {
     if (u.goalX !== null && u.unitType !== 'enemy') {
       const tx = camX + u.goalX * TILE * zoom, ty = camY + u.goalY * TILE * zoom;
@@ -276,7 +328,7 @@ function draw() {
     if (u.unitType === 'soldier') {
       ctx.beginPath();
       ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
-      ctx.strokeStyle = '#90A4AE';
+      ctx.strokeStyle = u.defending ? '#42A5F5' : '#90A4AE';
       ctx.lineWidth = Math.max(1, zoom);
       ctx.stroke();
     } else if (u.unitType === 'enemy') {

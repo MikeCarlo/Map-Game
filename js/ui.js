@@ -79,6 +79,8 @@ function updateUI() {
   const btnGroupCut = document.getElementById('btnGroupCut');
   const btnGroupMine = document.getElementById('btnGroupMine');
   const btnGroupAttack = document.getElementById('btnGroupAttack');
+  const btnSoldierDefend = document.getElementById('btnSoldierDefend');
+  const btnGroupDefend = document.getElementById('btnGroupDefend');
 
   btnMove.textContent = 'Move'; btnMove.classList.remove('active');
   btnCut.textContent = 'Cut'; btnCut.classList.remove('active');
@@ -91,6 +93,8 @@ function updateUI() {
   if (btnGroupCut) { btnGroupCut.textContent = 'Cut'; btnGroupCut.classList.remove('active'); }
   if (btnGroupMine) { btnGroupMine.textContent = 'Mine'; btnGroupMine.classList.remove('active'); }
   if (btnGroupAttack) { btnGroupAttack.textContent = 'Attack'; btnGroupAttack.classList.remove('active'); }
+  if (btnSoldierDefend) { btnSoldierDefend.textContent = 'Defend'; btnSoldierDefend.classList.remove('active'); }
+  if (btnGroupDefend) { btnGroupDefend.textContent = 'Defend'; btnGroupDefend.classList.remove('active'); }
 
   const selected = getSelectedUnits();
   const u = selected.length === 1 ? selected[0] : null;
@@ -148,6 +152,7 @@ function updateUI() {
     if (btnGroupCut) btnGroupCut.style.display = comp.allWorkers ? '' : 'none';
     if (btnGroupMine) btnGroupMine.style.display = comp.allWorkers ? '' : 'none';
     if (btnGroupAttack) btnGroupAttack.style.display = comp.allSoldiers ? '' : 'none';
+    if (btnGroupDefend) btnGroupDefend.style.display = comp.allSoldiers ? '' : 'none';
 
     if (actionMode === 'moveTarget') {
       info.textContent = `Move ${selectionSummary(selected)} — tap destination`;
@@ -155,6 +160,9 @@ function updateUI() {
     } else if (actionMode === 'attackTarget') {
       info.textContent = `Attack — tap an enemy or hut (${selectionSummary(selected)})`;
       if (btnGroupAttack) { btnGroupAttack.textContent = '✕ Attack'; btnGroupAttack.classList.add('active'); }
+    } else if (actionMode === 'defendTarget') {
+      info.textContent = `Defend — tap the spot to hold (${selectionSummary(selected)})`;
+      if (btnGroupDefend) { btnGroupDefend.textContent = '✕ Defend'; btnGroupDefend.classList.add('active'); }
     } else if (actionMode === 'cutTarget') {
       info.textContent = `Group Cut — tap a forest area (${selectionSummary(selected)})`;
       if (btnGroupCut) { btnGroupCut.textContent = '✕ Cut'; btnGroupCut.classList.add('active'); }
@@ -164,7 +172,9 @@ function updateUI() {
     } else if (comp.allWorkers) {
       info.textContent = `${selectionSummary(selected)} — Move / Cut / Mine${modeHint}`;
     } else if (comp.allSoldiers) {
-      info.textContent = `${selectionSummary(selected)} — Move / Attack${modeHint}`;
+      const holding = selected.filter(s => s.defending).length;
+      const duty = holding ? ` — ${holding} holding post` : '';
+      info.textContent = `${selectionSummary(selected)} — Move / Attack / Defend${duty}${modeHint}`;
     } else {
       info.textContent = `Mixed ${selectionSummary(selected)} — Move only (or filter type)${modeHint}`;
     }
@@ -181,10 +191,17 @@ function updateUI() {
     } else if (actionMode === 'attackTarget') {
       info.textContent = 'Tap an enemy (green) or hut to attack';
       if (btnSoldierAttack) { btnSoldierAttack.textContent = '✕ Attack'; btnSoldierAttack.classList.add('active'); }
+    } else if (actionMode === 'defendTarget') {
+      info.textContent = 'Tap the spot for the soldier to defend';
+      if (btnSoldierDefend) { btnSoldierDefend.textContent = '✕ Defend'; btnSoldierDefend.classList.add('active'); }
+    } else if (u.defending && u.attacking) {
+      info.textContent = 'Soldier defending post — engaging…' + hp;
+    } else if (u.defending) {
+      info.textContent = 'Soldier holding post' + hp;
     } else if (u.attacking) {
       info.textContent = 'Soldier attacking…' + hp;
     } else {
-      info.textContent = 'Soldier — Move / Attack' + hp + modeHint;
+      info.textContent = 'Soldier — Move / Attack / Defend' + hp + modeHint;
     }
     return;
   }

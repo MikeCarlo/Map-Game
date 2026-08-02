@@ -99,6 +99,12 @@ const SOLDIER_ATTACK_RANGE = 1.35;
 // neighbour (1.41) must still count as adjacent.
 const SOLDIER_BUILDING_REACH = 1.95;
 const ATTACK_REPATH_INTERVAL = 0.6;
+// Defend: a soldier holds a post and engages enemies that come near it
+const DEFEND_RADIUS = 7;          // enemies this close to the post get engaged
+const DEFEND_LEASH = 9;           // stop chasing once the target passes this
+const DEFEND_POST_SLACK = 0.75;   // close enough to count as holding the post
+const DEFEND_REPATH_INTERVAL = 0.8;
+
 const ENEMY_MOVE_SPEED = 3.2;
 const ENEMY_AGGRO_RANGE = 18;
 const ENEMY_ATTACK_DAMAGE = 2;

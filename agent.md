@@ -60,7 +60,9 @@ config.js → state.js → map.js → pathfinding.js
 ## Architecture notes
 
 - **No modules / imports.** Everything is global functions and shared state.
-- **Unit AI:** path array + flags (`harvesting`, `mining`, `building`, `repairing`, `tunneling`, `attacking`). On path complete, `main.js` calls `start*OnArrival` / `finish*`.
+- **Unit AI:** path array + flags (`harvesting`, `mining`, `building`, `repairing`, `tunneling`, `attacking`, `defending`). On path complete, `main.js` calls `start*OnArrival` / `finish*`.
+- **Combat:** buildings (base / armory / hut) take damage per tile via `damageBuildingTile`; `onBuildingTileDestroyed` retires the structure when its last tile falls. Soldiers never have a whole-building `hp` field — use `hutHealthStats` / `sumHpForTiles` to report health.
+- **Defend:** `defending` + `defendX/defendY` post held in `combat.js`; `updateDefender` engages enemies inside `DEFEND_RADIUS` of the post, drops them past `DEFEND_LEASH`, and walks back. Anything that calls `clearUnitOrders` (Move / Attack / Cancel) releases the post, so re-engaging from a post goes through `engageFromPost`, which restores the post afterwards.
 - **Harvest pattern:** one resource unit per trip; worker must return beside base to deposit, then continue.
 - **Buildings:** multi-tile footprints; **per-tile HP** in `buildingHpMap`. Color lerps toward grey as HP drops. Aggregate % shown when selecting base/armory.
 - **Occupancy:** idle units cannot share a stand tile (`isTileBlockedForStand` / goal reservation).
@@ -70,7 +72,7 @@ config.js → state.js → map.js → pathfinding.js
 
 1. **Constants** → `config.js` (e.g. `REPAIR_TIME`, `BUILDING_TILE_MAX_HP`, attack damage).
 2. **New worker action** → add state fields in `state.js` / `clearUnitOrders`; implement `set*Target` + finish/start helpers in the right `actionsN.js`; wire timer in `main.js`; mode in `input.js`; button + info in `ui.js` + `index.html`.
-3. **Combat / enemies** → `combat.js` + constants in `config.js`.
+3. **Combat / enemies / defend** → `combat.js` + constants in `config.js`.
 4. **Building HP / repair** → `buildings.js` + `actions5.js`.
 5. **Rendering** → `render.js` only (keep logic out of draw).
 

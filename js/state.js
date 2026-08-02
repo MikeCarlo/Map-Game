@@ -131,7 +131,11 @@ function makeUnit(x, y, unitType = 'worker') {
     attackTargetId: null,
     attackHutId: null,
     attackTimer: 0,
-    attackRepathTimer: 0
+    attackRepathTimer: 0,
+    defending: false,
+    defendX: null,
+    defendY: null,
+    defendRepathTimer: 0
   };
   if (unitType === 'soldier') {
     u.hp = SOLDIER_MAX_HP;
@@ -216,6 +220,7 @@ function isUnitIdleForSelect(u) {
   if (u.unitType === 'enemy') return false;
   if (u.path && u.path.length && u.pathIndex < u.path.length) return false;
   if (u.harvesting || u.mining || u.building || u.repairing || u.tunneling || u.attacking) return false;
+  if (u.defending) return false;
   if (u.carryingWood || u.carryingVirelium) return false;
   return true;
 }
@@ -246,4 +251,5 @@ function clearUnitOrders(u) {
   u.carveTimer = 0; u.carveTileX = u.carveTileY = null;
   u.attacking = false; u.attackTargetId = null; u.attackHutId = null; u.attackTimer = 0;
   u.attackRepathTimer = 0;
+  u.defending = false; u.defendX = u.defendY = null; u.defendRepathTimer = 0;
 }

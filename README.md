@@ -127,6 +127,36 @@ Clears the worker’s current orders and deselects it.
 
 ---
 
+## Soldier actions (dark dots with a ring)
+
+Soldiers are trained at an armory. Select one — or several, via double-tap or a
+long-press box select — and the bar offers **Move / Attack / Defend / Cancel**.
+
+### Attack
+1. Tap **Attack**
+2. Tap an enemy (green) or an enemy hut
+
+Soldiers walk into range and hit the target until it dies. Huts are chewed
+through one tile at a time and darken as they take damage.
+
+### Defend
+1. Tap **Defend**
+2. Tap the spot on the map you want held
+
+Each selected soldier takes a post at that spot (a group spreads over the tiles
+around it, one post each) and stands guard:
+
+- Any enemy that comes within **7 tiles of the post** is engaged automatically
+- A target that runs beyond **9 tiles** is let go rather than chased across the map
+- After the fight, the soldier walks back to its post and keeps watching
+- The post is marked with a blue diamond; selecting the soldier shows its guard
+  radius as a dashed ring, and a dotted tether while it is away from the post
+
+Defend sticks until you give the soldier another order — **Attack**, **Move**
+or **Cancel** all release the post.
+
+---
+
 ## Base actions (purple)
 
 1. Tap any tile of a base to select it
@@ -186,7 +216,7 @@ Scripts load in order (no bundler). Edit any module and refresh the browser.
 
 - Tree regrowth over time
 - Resource costs to train / build
-- Combat / defend bases
+- Patrol routes between two posts
 - Multiple player bases / factions
 - Save / load map state
 - Worker idle behavior improvements

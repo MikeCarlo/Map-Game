@@ -30,6 +30,9 @@ const VIRELIUM_SHADES = [
   '#004D40', '#00695C', '#00796B', '#00897B', '#009688',
   '#26A69A', '#4DB6AC', '#80CBC4', '#00BCD4', '#00E5FF'
 ];
+const BUILDING_DESTROYED_COLOR = '#9E9E9E';
+const BUILDING_TILE_MAX_HP = 12;
+
 function tileColor(tx, ty, tile) {
   if (tile === TILE_TREE) {
     const d = (treeDensity && treeDensity[ty] && treeDensity[ty][tx]) ? treeDensity[ty][tx] : 3;
@@ -41,15 +44,18 @@ function tileColor(tx, ty, tile) {
   }
   if (tile === TILE_BASE) {
     const h = ((tx * 19349663) ^ (ty * 83492791) ^ ((tx + ty) * 17)) >>> 0;
-    return BASE_SHADES[h % BASE_SHADES.length];
+    const full = BASE_SHADES[h % BASE_SHADES.length];
+    return (typeof buildingTileColor === 'function') ? buildingTileColor(full, tx, ty) : full;
   }
   if (tile === TILE_ARMORY) {
     const h = ((tx * 73856093) ^ (ty * 19349663) ^ ((tx + ty) * 31)) >>> 0;
-    return ARMORY_SHADES[h % ARMORY_SHADES.length];
+    const full = ARMORY_SHADES[h % ARMORY_SHADES.length];
+    return (typeof buildingTileColor === 'function') ? buildingTileColor(full, tx, ty) : full;
   }
   if (tile === TILE_HUT) {
     const h = ((tx * 50331653) ^ (ty * 33416511) ^ ((tx + ty) * 13)) >>> 0;
-    return HUT_SHADES[h % HUT_SHADES.length];
+    const full = HUT_SHADES[h % HUT_SHADES.length];
+    return (typeof buildingTileColor === 'function') ? buildingTileColor(full, tx, ty) : full;
   }
   if (tile === TILE_JET) return '#0D0D1A';
   if (tile === TILE_TUNNEL) return '#4A3728';
@@ -81,7 +87,6 @@ const HUT_FOOTPRINT = [];
     for (let dx = 0; dx < HUT_SIZE; dx++)
       HUT_FOOTPRINT.push({ dx, dy });
 })();
-const HUT_MAX_HP = 40;
 const HUT_SPAWN_INTERVAL_MIN = 18;
 const HUT_SPAWN_INTERVAL_MAX = 32;
 const HUT_MAX_ALIVE_ENEMIES = 6;
@@ -94,7 +99,7 @@ const ENEMY_MOVE_SPEED = 3.2;
 const ENEMY_AGGRO_RANGE = 18;
 const ENEMY_ATTACK_DAMAGE = 2;
 const ENEMY_ATTACK_INTERVAL = 1.1;
-const DEATH_MARK_DURATION = 30; // seconds — light grey ground stain fade
+const DEATH_MARK_DURATION = 30;
 
 const MOVE_SPEED = 5.5;
 const SOLDIER_MOVE_SPEED = 6.5;

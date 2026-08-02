@@ -1,1 +1,1 @@
-// SEE FULL CONTENT BELOW - loading from local
+// actions.js — logic lives in actions1.js … actions5.js (loaded by index.html)

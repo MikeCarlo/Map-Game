@@ -350,6 +350,9 @@ function placeStartingBase(m, dens, minerals) {
     for (let dx = 0; dx < BASE_SEGMENT_SIZE; dx++)
       m[spot.y + dy][spot.x + dx] = TILE_BASE;
   playerBase = makePlayerBase(spot.x, spot.y);
+  if (typeof initTilesHpForFootprint === 'function') {
+    initTilesHpForFootprint(spot.x, spot.y, BASE_FOOTPRINT);
+  }
   return spot;
 }
 
@@ -374,14 +377,12 @@ function placeEnemyHut(m, dens, minerals, baseSpot) {
     const hx = ax + HUT_SIZE / 2, hy = ay + HUT_SIZE / 2;
     const bx = baseSpot.x + BASE_SEGMENT_SIZE / 2, by = baseSpot.y + BASE_SEGMENT_SIZE / 2;
     if (Math.hypot(hx - bx, hy - by) < minDist) continue;
-    // clear and place
     for (const { dx, dy } of HUT_FOOTPRINT) {
       const x = ax + dx, y = ay + dy;
       m[y][x] = TILE_HUT;
       dens[y][x] = 0;
       minerals[y][x] = 0;
     }
-    // clear a small ring so enemies can spawn
     for (let dy = -1; dy < HUT_SIZE + 1; dy++)
       for (let dx = -1; dx < HUT_SIZE + 1; dx++) {
         const x = ax + dx, y = ay + dy;
@@ -391,12 +392,13 @@ function placeEnemyHut(m, dens, minerals, baseSpot) {
           dens[y][x] = 0;
         }
       }
+    if (typeof initTilesHpForFootprint === 'function') {
+      initTilesHpForFootprint(ax, ay, HUT_FOOTPRINT);
+    }
     const interval = rand(HUT_SPAWN_INTERVAL_MIN, HUT_SPAWN_INTERVAL_MAX);
     placed = {
       id: nextHutId++,
       x: ax, y: ay,
-      hp: HUT_MAX_HP,
-      maxHp: HUT_MAX_HP,
       spawnTimer: interval * 0.4
     };
     huts.push(placed);
@@ -428,6 +430,7 @@ function generateMap() {
     minerals[y] = new Array(MAP_W).fill(0);
     dens[y] = new Array(MAP_W).fill(0);
   }
+  if (typeof createBuildingHpMap === 'function') buildingHpMap = createBuildingHpMap();
   generateRockVeins(m); generateWater(m); generateTrees(m, dens); generateJets(m, minerals);
   const baseSpot = placeStartingBase(m, dens, minerals);
   placeEnemyHut(m, dens, minerals, baseSpot);
@@ -448,5 +451,6 @@ function newMap() {
   claimedTrees.clear(); claimedMinerals.clear();
   jetPulses = [];
   armories = [];
+  deathMarks = [];
   updateUI(); draw();
 }

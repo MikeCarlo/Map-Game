@@ -130,7 +130,8 @@ function makeUnit(x, y, unitType = 'worker') {
     attacking: false,
     attackTargetId: null,
     attackHutId: null,
-    attackTimer: 0
+    attackTimer: 0,
+    attackRepathTimer: 0
   };
   if (unitType === 'soldier') {
     u.hp = SOLDIER_MAX_HP;
@@ -244,4 +245,5 @@ function clearUnitOrders(u) {
   u.tunneling = false; u.tunnelStart = null; u.tunnelEnd = null; u.tunnelCarvePath = null;
   u.carveTimer = 0; u.carveTileX = u.carveTileY = null;
   u.attacking = false; u.attackTargetId = null; u.attackHutId = null; u.attackTimer = 0;
+  u.attackRepathTimer = 0;
 }

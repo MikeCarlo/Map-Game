@@ -108,7 +108,10 @@ function updateUI() {
   if (selectedHut) {
     const h = findHutAt(selectedHut.x, selectedHut.y);
     document.getElementById('mapActions').style.display = 'flex';
-    if (h) info.textContent = `Enemy Hut — HP ${Math.max(0, Math.ceil(h.hp))}/${h.maxHp} · Enemies ${countEnemies()}`;
+    if (h) {
+      const st = hutHealthStats(h);
+      info.textContent = `Enemy Hut — HP ${st.cur}/${st.max} · Enemies ${countEnemies()}`;
+    }
     else info.textContent = 'Enemy hut destroyed';
     return;
   }
@@ -237,7 +240,10 @@ function updateUI() {
   const parts = [];
   if (playerBase) parts.push(workerCapNote());
   if (armories.length) parts.push(soldierCapNote());
-  if (huts.length) parts.push(`Hut HP ${Math.ceil(huts[0].hp)}/${huts[0].maxHp}`);
+  if (huts.length) {
+    const st = hutHealthStats(huts[0]);
+    parts.push(`Hut HP ${st.cur}/${st.max}`);
+  }
   if (countEnemies()) parts.push(`Enemies ${countEnemies()}`);
   const cap = parts.length ? ' — ' + parts.join(' · ') : '';
   const panHint = cameraPanEnabled

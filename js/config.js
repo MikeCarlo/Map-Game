@@ -95,6 +95,10 @@ const SOLDIER_MAX_HP = 20;
 const SOLDIER_ATTACK_DAMAGE = 4;
 const SOLDIER_ATTACK_INTERVAL = 0.85;
 const SOLDIER_ATTACK_RANGE = 1.35;
+// Reach against a building tile: measured centre-to-centre, so a diagonal
+// neighbour (1.41) must still count as adjacent.
+const SOLDIER_BUILDING_REACH = 1.95;
+const ATTACK_REPATH_INTERVAL = 0.6;
 const ENEMY_MOVE_SPEED = 3.2;
 const ENEMY_AGGRO_RANGE = 18;
 const ENEMY_ATTACK_DAMAGE = 2;

@@ -194,13 +194,16 @@ function draw() {
 
   // Hut damage: darken slightly instead of a bar
   for (const hut of huts) {
-    if (hut.hp >= hut.maxHp) continue;
-    const pct = Math.max(0, hut.hp / hut.maxHp);
-    const sx = camX + hut.x * TILE * zoom;
-    const sy = camY + hut.y * TILE * zoom;
-    const size = HUT_SIZE * TILE * zoom;
+    const stats = hutHealthStats(hut);
+    if (stats.max <= 0 || stats.cur >= stats.max) continue;
+    const pct = Math.max(0, stats.cur / stats.max);
+    const size = TILE * zoom;
     ctx.fillStyle = `rgba(0,0,0,${(1 - pct) * 0.35})`;
-    ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
+    for (const t of liveTilesInFootprint(hut.x, hut.y, HUT_FOOTPRINT)) {
+      const sx = camX + t.x * TILE * zoom;
+      const sy = camY + t.y * TILE * zoom;
+      ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
+    }
   }
 
   if (selectedBase) {

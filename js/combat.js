@@ -1,18 +1,49 @@
 // combat.js — soldier attack, enemy AI, hut spawning
+
+/** Live (undestroyed) hut tile closest to a point, or null when the hut is rubble. */
+function nearestHutTile(hut, fromX, fromY) {
+  if (!hut) return null;
+  return nearestLiveBuildingTile(fromX, fromY, footprintTiles(hut.x, hut.y, HUT_FOOTPRINT));
+}
+
+/** Distance from a point to the closest live hut tile centre, or null if none left. */
+function distToHut(hut, fromX, fromY) {
+  const t = nearestHutTile(hut, fromX, fromY);
+  if (!t) return null;
+  return Math.hypot(t.x + 0.5 - fromX, t.y + 0.5 - fromY);
+}
+
+function canHitHutFrom(hut, fromX, fromY) {
+  const d = distToHut(hut, fromX, fromY);
+  return d != null && d <= SOLDIER_BUILDING_REACH;
+}
+
+/**
+ * Stand tile for attacking a hut: a free tile that is actually in weapon reach
+ * of a live hut tile, nearest to the soldier. Falls back to a free tile near
+ * the hut (nearest to the hut, not to the soldier) when the ring is crowded.
+ */
 function findStandNearHut(hut, fromX, fromY, unitId) {
   let best = null, bestD = Infinity;
+  let fallback = null, fallbackD = Infinity;
   for (let r = 1; r <= 4; r++) {
     for (let dy = -r; dy <= HUT_SIZE - 1 + r; dy++) {
       for (let dx = -r; dx <= HUT_SIZE - 1 + r; dx++) {
         const nx = hut.x + dx, ny = hut.y + dy;
         if (!isWalkableTile(nx, ny)) continue;
         if (unitId != null && isTileBlockedForStand(nx, ny, unitId)) continue;
-        const d = Math.hypot(nx - fromX, ny - fromY);
-        if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
+        const toUnit = Math.hypot(nx + 0.5 - fromX, ny + 0.5 - fromY);
+        const toHut = distToHut(hut, nx + 0.5, ny + 0.5);
+        if (toHut == null) return null;
+        if (toHut <= SOLDIER_BUILDING_REACH) {
+          if (toUnit < bestD) { bestD = toUnit; best = { x: nx, y: ny }; }
+        } else if (toHut < fallbackD) {
+          fallbackD = toHut; fallback = { x: nx, y: ny };
+        }
       }
     }
   }
-  return best;
+  return best || fallback;
 }
 
 function setAttackEnemy(u, target) {
@@ -33,17 +64,17 @@ function setAttackEnemy(u, target) {
 
 function setAttackHut(u, hut) {
   if (!u || u.unitType !== 'soldier' || !hut) return false;
+  if (!nearestHutTile(hut, u.x, u.y)) return false; // already flattened
   clearUnitOrders(u);
   u.attacking = true;
   u.attackHutId = hut.id;
   u.attackTargetId = null;
   u.attackTimer = 0;
-  const hx = hut.x + HUT_SIZE / 2, hy = hut.y + HUT_SIZE / 2;
-  const dist = Math.hypot(u.x - hx, u.y - hy);
-  if (dist <= SOLDIER_ATTACK_RANGE + 1.2) return true;
-  const stand = findStandNearHut(hut, Math.floor(u.x), Math.floor(u.y), u.id);
+  if (canHitHutFrom(hut, u.x, u.y)) return true;
+  const stand = findStandNearHut(hut, u.x, u.y, u.id);
   if (!stand) return false;
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
+  if (stand.x === sx && stand.y === sy) return true;
   const tiles = aStar(sx, sy, stand.x, stand.y, false) || pathToClosest(sx, sy, stand.x, stand.y);
   return applyPath(u, tiles);
 }
@@ -90,6 +121,7 @@ function destroyHut(hut) {
   for (const { dx, dy } of HUT_FOOTPRINT) {
     const x = hut.x + dx, y = hut.y + dy;
     if (inBounds(x, y) && map[y][x] === TILE_HUT) map[y][x] = TILE_DIRT;
+    clearBuildingTileHp(x, y);
   }
   for (const u of units) {
     if (u.attackHutId === hut.id) {
@@ -175,19 +207,23 @@ function updateCombat(dt) {
     if (u.attackHutId != null) {
       const hut = huts.find(h => h.id === u.attackHutId);
       if (!hut) { u.attacking = false; u.attackHutId = null; continue; }
-      const hx = hut.x + HUT_SIZE / 2, hy = hut.y + HUT_SIZE / 2;
-      const dist = Math.hypot(u.x - hx, u.y - hy);
-      if (dist > SOLDIER_ATTACK_RANGE + 1.4) {
-        if (!u.path.length) setAttackHut(u, hut);
+      const tile = nearestHutTile(hut, u.x, u.y);
+      if (!tile) { u.attacking = false; u.attackHutId = null; continue; }
+      const dist = Math.hypot(tile.x + 0.5 - u.x, tile.y + 0.5 - u.y);
+      if (dist > SOLDIER_BUILDING_REACH) {
+        u.attackRepathTimer = (u.attackRepathTimer || 0) - dt;
+        if (!u.path.length && u.attackRepathTimer <= 0) {
+          setAttackHut(u, hut);
+          u.attackRepathTimer = ATTACK_REPATH_INTERVAL;
+        }
         continue;
       }
       u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
       u.attackTimer -= dt;
       if (u.attackTimer <= 0) {
         u.attackTimer = SOLDIER_ATTACK_INTERVAL;
-        hut.hp -= SOLDIER_ATTACK_DAMAGE;
+        damageBuildingTile(tile.x, tile.y, SOLDIER_ATTACK_DAMAGE);
         changed = true;
-        if (hut.hp <= 0) destroyHut(hut);
       }
       continue;
     }

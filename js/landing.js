@@ -47,7 +47,7 @@ function hideLanding() {
 /** Fresh world at the given size. `level` starts a tutorial level instead. */
 function startGame(sizeKey, level = null) {
   setMapSize(sizeKey);
-  const { baseSpot } = generateMap();
+  const { baseSpot } = generateMap(level && level.map ? level.map : {});
   units = [spawnWorkerBesideBase(baseSpot)];
   selectedUnitId = null; selectedUnitIds = []; fullSelectionIds = [];
   selectedBase = null; selectedArmory = null; selectedHut = null;

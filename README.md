@@ -31,9 +31,15 @@ Tap **Menu** in the bottom bar at any point to come back here.
 | 5 | Soldiers and defence | Training a soldier, setting a Defend post |
 | 6 | Enemies and huts | Box-select, Attack, clearing a hut |
 
-Each level checks your real game state — there is no scripted path, you
-actually do the thing. Levels seed whatever they need (level 5 hands you an
-armory), so you can jump straight to the one you want. **Skip step** moves past
+Each level generates a world suited to it. **No enemy hut exists until level 6**
+— nothing spawns attackers while you are learning to harvest. Level 1 is open
+country with nothing to cut or mine, level 2 has wood but no Virelium, level 4
+clears flat ground for your armory, and only the last level puts a hut on the
+map.
+
+Levels check your real game state — there is no scripted path, you actually do
+the thing. They also seed whatever they need (level 5 hands you an armory), so
+you can jump straight to the one you want. **Skip step** moves past
 anything you are stuck on, and finished levels get a green tick on the menu.
 
 ---

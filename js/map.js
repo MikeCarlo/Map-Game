@@ -325,25 +325,65 @@ function clearAreaForBase(m, dens, minerals, ax, ay) {
   }
 }
 
+/** Size of the walkable region touching (x, y), counting up to `cap` tiles. */
+function connectedLandSize(m, x, y, cap) {
+  const walk = (px, py) => {
+    if (px < 0 || py < 0 || px >= MAP_W || py >= MAP_H) return false;
+    const t = m[py][px];
+    return t === TILE_DIRT || t === TILE_STUMP || t === TILE_TUNNEL;
+  };
+  if (!walk(x, y)) return 0;
+  const seen = new Set([y * MAP_W + x]);
+  const queue = [{ x, y }];
+  while (queue.length && seen.size < cap) {
+    const c = queue.shift();
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = c.x + dx, ny = c.y + dy, k = ny * MAP_W + nx;
+      if (seen.has(k) || !walk(nx, ny)) continue;
+      seen.add(k);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  return seen.size;
+}
+
 function findStarterBaseSpot(m) {
   const cx0 = Math.floor(MAP_W / 2) - 1;
   const cy0 = Math.floor(MAP_H / 2) - 1;
-  for (let r = 0; r < 40; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const ax = cx0 + dx, ay = cy0 + dy;
-        if (ax < 4 || ay < 4 || ax + BASE_SEGMENT_SIZE >= MAP_W - 4 || ay + BASE_SEGMENT_SIZE >= MAP_H - 4) continue;
-        let ok = true;
-        for (let sy = 0; sy < BASE_SEGMENT_SIZE && ok; sy++)
-          for (let sx = 0; sx < BASE_SEGMENT_SIZE && ok; sx++) {
-            const t = m[ay + sy][ax + sx];
-            if (t === TILE_ROCK || t === TILE_WATER || t === TILE_JET) ok = false;
+  // Enough room around the start to actually play: without this the base can
+  // land on a small island, with the rest of the world across water.
+  const wantLand = Math.max(120, Math.round(MAP_W * MAP_H * 0.06));
+  let fallback = null;
+  for (const needLand of [wantLand, 0]) {
+    for (let r = 0; r < 40; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const ax = cx0 + dx, ay = cy0 + dy;
+          if (ax < 4 || ay < 4 || ax + BASE_SEGMENT_SIZE >= MAP_W - 4 || ay + BASE_SEGMENT_SIZE >= MAP_H - 4) continue;
+          let ok = true;
+          for (let sy = 0; sy < BASE_SEGMENT_SIZE && ok; sy++)
+            for (let sx = 0; sx < BASE_SEGMENT_SIZE && ok; sx++) {
+              const t = m[ay + sy][ax + sx];
+              if (t === TILE_ROCK || t === TILE_WATER || t === TILE_JET) ok = false;
+            }
+          if (!ok) continue;
+          if (!fallback) fallback = { x: ax, y: ay };
+          if (needLand > 0) {
+            // measure from just outside the footprint, where units will stand
+            const land = Math.max(
+              connectedLandSize(m, ax - 1, ay, needLand),
+              connectedLandSize(m, ax + BASE_SEGMENT_SIZE, ay, needLand),
+              connectedLandSize(m, ax, ay - 1, needLand),
+              connectedLandSize(m, ax, ay + BASE_SEGMENT_SIZE, needLand)
+            );
+            if (land < needLand) continue;
           }
-        if (ok) return { x: ax, y: ay };
+          return { x: ax, y: ay };
+        }
       }
     }
   }
-  return { x: cx0, y: cy0 };
+  return fallback || { x: cx0, y: cy0 };
 }
 
 function placeStartingBase(m, dens, minerals) {
@@ -426,7 +466,11 @@ function spawnWorkerBesideBase(spot) {
   return makeUnit(spot.x + 1.5, spot.y - 0.5, 'worker');
 }
 
-function generateMap() {
+/**
+ * opts lets a tutorial level ask for a world that suits it — most importantly
+ * `hut: false`, so nothing is spawning enemies during the harvesting lessons.
+ */
+function generateMap(opts = {}) {
   const m = createEmptyMap();
   const minerals = new Array(MAP_H);
   const dens = new Array(MAP_H);
@@ -435,9 +479,14 @@ function generateMap() {
     dens[y] = new Array(MAP_W).fill(0);
   }
   if (typeof createBuildingHpMap === 'function') buildingHpMap = createBuildingHpMap();
-  generateRockVeins(m); generateWater(m); generateTrees(m, dens); generateJets(m, minerals);
+  if (opts.rock !== false) generateRockVeins(m);
+  if (opts.water !== false) generateWater(m);
+  if (opts.trees !== false) generateTrees(m, dens);
+  if (opts.jets !== false) generateJets(m, minerals);
+  else { jets = []; jetPulses = []; }
   const baseSpot = placeStartingBase(m, dens, minerals);
-  placeEnemyHut(m, dens, minerals, baseSpot);
+  if (opts.hut === false) huts = [];
+  else placeEnemyHut(m, dens, minerals, baseSpot);
   mineralMap = minerals;
   treeDensity = dens;
   map = m;

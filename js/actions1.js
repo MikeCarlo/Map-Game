@@ -123,6 +123,14 @@ function setGroupMineTarget(workerList, worldX, worldY) {
   return any;
 }
 
+/** A tree with no walkable neighbour cannot be cut — nobody can stand by it. */
+function treeHasStandTile(x, y) {
+  for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+    if (isWalkableTile(x + dx, y + dy)) return true;
+  }
+  return false;
+}
+
 function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
   const key = (x, y) => y * MAP_W + x;
   const queue = [{ x: fromX, y: fromY, d: 0 }], visited = new Set([key(fromX, fromY)]);
@@ -132,6 +140,7 @@ function findNearestTree(fromX, fromY, unitId, maxRange = 40) {
     if (cur.d > maxRange) break;
     if (inBounds(cur.x, cur.y) && map[cur.y][cur.x] === TILE_TREE &&
         isTileExplored(cur.x, cur.y) &&
+        treeHasStandTile(cur.x, cur.y) &&
         !isTreeClaimedByOther(cur.x, cur.y, unitId))
       return { x: cur.x, y: cur.y };
     for (const [dx, dy] of dirs) {

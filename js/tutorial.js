@@ -31,18 +31,83 @@ let tutorialCompleted = loadTutorialProgress();
 
 // ---- helpers available to level setup() ----
 
-function tutorialFreeTileNearBase(dx, dy, r = 10) {
-  if (!playerBase || !playerBase.segments.length) return null;
-  const seg = playerBase.segments[0];
-  return findFreeStandTile(seg.x + dx, seg.y + dy, null, r);
+// Ground a unit standing by the base can actually walk to. Seeding an enemy
+// across a river leaves the player unable to finish "wipe out both attackers".
+let tutorialReach = null;
+
+function tutorialComputeReach() {
+  tutorialReach = null;
+  if (!playerBase || !playerBase.segments.length) return;
+  const key = (x, y) => y * MAP_W + x;
+  const seen = new Set();
+  const queue = [];
+  // Seed from every walkable tile touching the base. A single start tile can
+  // land in a one-tile pocket, which made the whole map look unreachable.
+  for (const seg of playerBase.segments) {
+    for (let y = seg.y - 1; y <= seg.y + BASE_SEGMENT_SIZE; y++) {
+      for (let x = seg.x - 1; x <= seg.x + BASE_SEGMENT_SIZE; x++) {
+        if (!isWalkableTile(x, y) || seen.has(key(x, y))) continue;
+        seen.add(key(x, y));
+        queue.push({ x, y });
+      }
+    }
+  }
+  for (const u of units) { // and from wherever the starting units stand
+    const x = Math.floor(u.x), y = Math.floor(u.y);
+    if (!isWalkableTile(x, y) || seen.has(key(x, y))) continue;
+    seen.add(key(x, y));
+    queue.push({ x, y });
+  }
+  if (!queue.length) return;
+  while (queue.length) {
+    const c = queue.shift();
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = c.x + dx, ny = c.y + dy, k = key(nx, ny);
+      if (seen.has(k) || !isWalkableTile(nx, ny)) continue;
+      seen.add(k);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  tutorialReach = seen;
 }
 
-function tutorialSpawn(kind, dx, dy) {
+function tutorialIsReachable(x, y) {
+  return !tutorialReach || tutorialReach.has(y * MAP_W + x);
+}
+
+function tutorialFreeTileNearBase(dx, dy, r = 12) {
+  if (!playerBase || !playerBase.segments.length) return null;
+  const seg = playerBase.segments[0];
+  const cx = seg.x + dx, cy = seg.y + dy;
+  for (let rr = 0; rr <= r; rr++) {
+    for (let ddy = -rr; ddy <= rr; ddy++) {
+      for (let ddx = -rr; ddx <= rr; ddx++) {
+        if (rr > 0 && Math.abs(ddx) !== rr && Math.abs(ddy) !== rr) continue;
+        const x = cx + ddx, y = cy + ddy;
+        if (!isWalkableTile(x, y) || isTileBlockedForStand(x, y, null)) continue;
+        if (!tutorialIsReachable(x, y)) continue;
+        return { x, y };
+      }
+    }
+  }
+  return findFreeStandTile(cx, cy, null, r); // better placed than not placed
+}
+
+let tutorialTags = {};
+
+/** `tag` lets a step track the exact units it spawned, not just a global count. */
+function tutorialSpawn(kind, dx, dy, tag) {
   const spot = tutorialFreeTileNearBase(dx, dy);
   if (!spot) return null;
   const u = makeUnit(spot.x + 0.5, spot.y + 0.5, kind);
   units.push(u);
+  if (tag) (tutorialTags[tag] = tutorialTags[tag] || []).push(u.id);
   return u;
+}
+
+function tutorialTaggedAllGone(tag) {
+  const ids = tutorialTags[tag] || [];
+  return ids.length > 0 && ids.every(id => !units.some(u => u.id === id));
 }
 
 /** Drop a finished armory beside the base so soldier levels can start there. */
@@ -64,6 +129,62 @@ function tutorialGrantArmory() {
   return null;
 }
 
+/**
+ * Place the hut deliberately rather than letting map generation drop it
+ * anywhere: the level asks the player to destroy it, so it has to be walkable
+ * to and a sane distance away.
+ */
+/** How many tiles around a 2×2 footprint a unit could attack it from. */
+function tutorialHutApproachCount(ax, ay) {
+  let n = 0;
+  for (let dy = -1; dy <= HUT_SIZE; dy++) {
+    for (let dx = -1; dx <= HUT_SIZE; dx++) {
+      if (dx >= 0 && dx < HUT_SIZE && dy >= 0 && dy < HUT_SIZE) continue; // inside
+      const x = ax + dx, y = ay + dy;
+      if (isWalkableTile(x, y) && tutorialIsReachable(x, y)) n++;
+    }
+  }
+  return n;
+}
+
+function tutorialPlaceHut(minDist = 12, maxDist = 26, minApproach = 5) {
+  if (!playerBase || !playerBase.segments.length) return null;
+  const seg = playerBase.segments[0];
+  const want = (minDist + maxDist) / 2;
+  let best = null, bestScore = Infinity;
+  // Scan the whole map by distance from the base rather than around one guessed
+  // point — on a small map that point is often ocean, and the search then
+  // dumps the hut next door. Candidates need several reachable approach tiles,
+  // or findStandNearHut can pick a side the soldiers cannot walk to.
+  for (let y = 0; y < MAP_H - HUT_SIZE; y++) {
+    for (let x = 0; x < MAP_W - HUT_SIZE; x++) {
+      const d = Math.hypot(x - seg.x, y - seg.y);
+      if (d < minDist || d > maxDist) continue;
+      if (!canPlaceHutOn(map, x, y)) continue;
+      if (tutorialHutApproachCount(x, y) < minApproach) continue;
+      const score = Math.abs(d - want);
+      if (score < bestScore) { bestScore = score; best = { x, y }; }
+    }
+  }
+  if (!best) {
+    // relax, in order of what matters least to the lesson
+    if (minApproach > 3) return tutorialPlaceHut(minDist, maxDist, 3);
+    if (minDist > 6) return tutorialPlaceHut(6, Math.max(maxDist, 44), 3);
+    if (minApproach > 1) return tutorialPlaceHut(6, Math.max(maxDist, 44), 1);
+    return null;
+  }
+  for (const { dx, dy } of HUT_FOOTPRINT) {
+    const x = best.x + dx, y = best.y + dy;
+    map[y][x] = TILE_HUT;
+    if (treeDensity) treeDensity[y][x] = 0;
+    if (mineralMap) mineralMap[y][x] = 0;
+  }
+  initTilesHpForFootprint(best.x, best.y, HUT_FOOTPRINT);
+  const hut = { id: nextHutId++, x: best.x, y: best.y, spawnTimer: HUT_SPAWN_INTERVAL_MIN };
+  huts.push(hut);
+  return hut;
+}
+
 /** Reveal the whole map — used by levels about finding something specific. */
 function tutorialRevealAll() {
   if (!exploredMap) return;
@@ -81,20 +202,46 @@ function tutorialTileHasUnit(x, y) {
 function tutorialPlantGrove(dx, dy, count = 16) {
   const spot = tutorialFreeTileNearBase(dx, dy, 12);
   if (!spot || !treeDensity) return null;
-  let planted = 0;
-  for (let r = 0; r <= 5 && planted < count; r++) {
-    for (let ddy = -r; ddy <= r && planted < count; ddy++) {
-      for (let ddx = -r; ddx <= r && planted < count; ddx++) {
+  const put = [];
+  for (let r = 0; r <= 5 && put.length < count; r++) {
+    for (let ddy = -r; ddy <= r && put.length < count; ddy++) {
+      for (let ddx = -r; ddx <= r && put.length < count; ddx++) {
         const x = spot.x + ddx, y = spot.y + ddy;
         if (!inBounds(x, y) || map[y][x] !== TILE_DIRT) continue;
-        if (tutorialTileHasUnit(x, y)) continue; // never wall a unit in
+        if (tutorialTileHasUnit(x, y)) continue;       // never wall a unit in
+        if ((x + y) % 2 !== 0) continue;               // checkerboard: every tree stays reachable
         map[y][x] = TILE_TREE;
         treeDensity[y][x] = 3;
-        planted++;
+        put.push({ x, y });
       }
     }
   }
-  return planted ? spot : null;
+  // belt and braces: a tree nobody can stand beside is a tree nobody can cut
+  for (const t of put) {
+    if (treeHasStandTile(t.x, t.y)) continue;
+    map[t.y][t.x] = TILE_DIRT;
+    treeDensity[t.y][t.x] = 0;
+  }
+  return put.length ? spot : null;
+}
+
+/** Flatten ground near the base so a build lesson always has somewhere to put it. */
+function tutorialClearArea(dx, dy, r = 4) {
+  if (!playerBase || !playerBase.segments.length) return null;
+  const seg = playerBase.segments[0];
+  const cx = seg.x + dx, cy = seg.y + dy;
+  for (let y = cy - r; y <= cy + r; y++) {
+    for (let x = cx - r; x <= cx + r; x++) {
+      if (!inBounds(x, y)) continue;
+      const t = map[y][x];
+      if (t === TILE_BASE || t === TILE_ARMORY || t === TILE_HUT) continue;
+      map[y][x] = TILE_DIRT;
+      if (treeDensity) treeDensity[y][x] = 0;
+      if (mineralMap) mineralMap[y][x] = 0;
+    }
+  }
+  recomputeRockElevation();
+  return { x: cx, y: cy };
 }
 
 function tutorialSeedVirelium(dx, dy, count = 8) {
@@ -123,6 +270,9 @@ const TUTORIAL_LEVELS = [
     title: 'Getting around',
     goal: 'Select a unit and move it',
     size: 'small',
+    // Open country: rock and water give the pathfinder something to walk around,
+    // but nothing to harvest or fight yet.
+    map: { hut: false, trees: false, jets: false },
     steps: [
       {
         text: 'Tap the red dot near your purple base to select your worker.',
@@ -151,6 +301,7 @@ const TUTORIAL_LEVELS = [
     title: 'Cutting wood',
     goal: 'Harvest wood and bank it',
     size: 'small',
+    map: { hut: false, jets: false },   // wood only — no Virelium to distract
     setup: () => { tutorialPlantGrove(6, -3); },
     steps: [
       {
@@ -175,6 +326,7 @@ const TUTORIAL_LEVELS = [
     title: 'Mining Virelium',
     goal: 'Bank a Virelium crystal',
     size: 'small',
+    map: { hut: false },
     setup: () => { tutorialSeedVirelium(-7, 4); },
     steps: [
       {
@@ -198,7 +350,11 @@ const TUTORIAL_LEVELS = [
     title: 'Growing your base',
     goal: 'Train a worker and raise an armory',
     size: 'small',
-    setup: () => { woodInBase = 20; vireliumInBase = 10; },
+    map: { hut: false, jets: false },
+    setup: () => {
+      woodInBase = 20; vireliumInBase = 10;
+      tutorialClearArea(6, 0, 5); // guaranteed room for the armory
+    },
     steps: [
       {
         text: 'Tap any purple base tile, then Train to queue a second worker.',
@@ -217,8 +373,10 @@ const TUTORIAL_LEVELS = [
     title: 'Soldiers and defence',
     goal: 'Train a soldier and post it on guard',
     size: 'small',
+    map: { hut: false, jets: false },   // learn Defend before anything attacks
     setup: () => {
       woodInBase = 30; vireliumInBase = 20;
+      tutorialClearArea(5, 0, 4);
       tutorialGrantArmory();
     },
     steps: [
@@ -243,13 +401,18 @@ const TUTORIAL_LEVELS = [
     title: 'Enemies and huts',
     goal: 'Clear the attackers and destroy the hut',
     size: 'small',
+    // the one level with an enemy hut, and it is placed by hand so the last
+    // step is always achievable
+    map: { hut: false, jets: false },
     setup: () => {
       woodInBase = 30; vireliumInBase = 20;
+      tutorialClearArea(5, 0, 4);
       tutorialGrantArmory();
+      tutorialPlaceHut();
       tutorialSpawn('soldier', 3, 2);
       tutorialSpawn('soldier', -3, 2);
-      tutorialSpawn('enemy', 9, 6);
-      tutorialSpawn('enemy', -8, 7);
+      tutorialSpawn('enemy', 9, 6, 'foe');
+      tutorialSpawn('enemy', -8, 7, 'foe');
       tutorialRevealAll();
     },
     steps: [
@@ -264,9 +427,10 @@ const TUTORIAL_LEVELS = [
         done: () => units.some(u => u.unitType === 'soldier' && u.attacking)
       },
       {
-        text: 'Wipe out both enemies.',
-        hint: 'A killed unit leaves a fading stain — and drops any cargo it carried.',
-        done: () => countEnemies() === 0
+        // the hut keeps spawning, so this tracks the two that started the level
+        text: 'Wipe out both attackers.',
+        hint: 'The hut keeps sending more, so this is a holding action until it is gone.',
+        done: () => tutorialTaggedAllGone('foe')
       },
       {
         text: 'Now find the enemy hut on the minimap and destroy it — Attack, then tap the hut.',
@@ -289,7 +453,9 @@ function startTutorialLevel(level) {
   tutorialDone = false;
   tutorialMoveCount = 0;
   tutorialGoals = new Map();
+  tutorialTags = {};
   tutorialStepDone = level ? level.steps.map(() => false) : [];
+  if (level) tutorialComputeReach();
   if (level && typeof level.setup === 'function') level.setup();
   renderTutorialPanel();
 }
@@ -351,9 +517,28 @@ function nextTutorialLevel() {
 
 // ---- panel ----
 
+/**
+ * Sit directly above the action bar. The bar changes height with the selection
+ * (a worker shows a three-row grid, the map bar is one row), so this has to run
+ * whenever that box changes, not just when the step does — otherwise the panel
+ * is left sitting on top of the buttons.
+ */
 function positionTutorialPanel(el) {
   const bottom = typeof uiPanelTop === 'function' ? uiPanelTop() : window.innerHeight - 120;
-  el.style.bottom = Math.max(8, window.innerHeight - bottom + 8) + 'px';
+  const px = Math.max(8, window.innerHeight - bottom + 8) + 'px';
+  if (el.style.bottom !== px) el.style.bottom = px;
+}
+
+let tutorialUiObserver = null;
+function watchUiHeightForTutorial() {
+  if (tutorialUiObserver || typeof ResizeObserver === 'undefined') return;
+  const ui = document.getElementById('ui');
+  if (!ui) return;
+  tutorialUiObserver = new ResizeObserver(() => {
+    const el = document.getElementById('tutorial');
+    if (el && el.style.display !== 'none') positionTutorialPanel(el);
+  });
+  tutorialUiObserver.observe(ui);
 }
 
 function renderTutorialPanel() {
@@ -363,6 +548,7 @@ function renderTutorialPanel() {
   el.style.display = 'flex';
   el.classList.toggle('done', tutorialDone);
   positionTutorialPanel(el);
+  watchUiHeightForTutorial();
 
   const total = tutorialLevel.steps.length;
   const num = TUTORIAL_LEVELS.findIndex(l => l.id === tutorialLevel.id) + 1;

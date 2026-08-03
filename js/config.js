@@ -98,6 +98,7 @@ const WORKER_ATTACK_DAMAGE = 1;
 const WORKER_ATTACK_INTERVAL = 1.5;
 const WORKER_ATTACK_RANGE = 1.35;
 const WORKER_RETALIATE_TIME = 6; // keeps swinging this long after the last hit
+const DROP_PICKUP_RANGE = 0.85;  // walk this close to a dropped load to collect it
 const SOLDIER_ATTACK_DAMAGE = 4;
 const SOLDIER_ATTACK_INTERVAL = 0.85;
 const SOLDIER_ATTACK_RANGE = 1.35;

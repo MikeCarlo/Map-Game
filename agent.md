@@ -29,7 +29,7 @@ Order matters (globals, no modules):
 ```
 config.js → state.js → map.js → fog.js → pathfinding.js
 → actions1.js → actions2.js → actions3.js → actions4.js → actions5.js
-→ buildings.js → training.js → construction.js → combat.js → ui.js → render.js → minimap.js → input.js → main.js
+→ buildings.js → drops.js → training.js → construction.js → combat.js → ui.js → render.js → minimap.js → input.js → main.js
 ```
 
 `js/actions.js` is a **stub only** (comment pointing at the split files). Do not put logic there.
@@ -49,6 +49,7 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 | `js/actions4.js` | Armory, build, tunnel, train worker/soldier |
 | `js/actions5.js` | Repair (damaged friendly base/armory tiles) |
 | `js/buildings.js` | Per-tile building HP, color fade, damage/repair helpers |
+| `js/drops.js` | Cargo dropped on the ground when a laden worker is attacked, and pickup |
 | `js/training.js` | Training queue: timed worker/soldier jobs per building |
 | `js/construction.js` | Build timers: worker build sites + timed base upgrade |
 | `js/combat.js` | Soldiers, enemies, hut spawn, attack targeting |
@@ -65,7 +66,8 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 
 - **No modules / imports.** Everything is global functions and shared state.
 - **Unit AI:** path array + flags (`harvesting`, `mining`, `building`, `repairing`, `tunneling`, `attacking`, `defending`). On path complete, `main.js` calls `start*OnArrival` / `finish*`.
-- **Unit HP:** workers (`WORKER_MAX_HP`), soldiers and enemies all carry `hp`/`maxHp`; `drawUnitBody` renders it as a pie-arc. `damageUnit(u, amount, attacker)` takes the attacker so a struck worker can set `retaliateTargetId`. `updateWorkerRetaliation` makes workers swing back weakly (`WORKER_ATTACK_DAMAGE`) at an adjacent attacker only — no chasing, no order changes, expires after `WORKER_RETALIATE_TIME`.
+- **Unit HP:** workers (`WORKER_MAX_HP`), soldiers and enemies all carry `hp`/`maxHp`; `drawUnitBody` renders it as a pie-arc. `damageUnit(u, amount, attacker)` takes the attacker so a struck worker can set `retaliateTargetId`. `updateWorkerRetaliation` makes workers swing back weakly (`WORKER_ATTACK_DAMAGE`) at an adjacent attacker only — no chasing, expires after `WORKER_RETALIATE_TIME`.
+- **Dropped cargo:** `drops.js`. A laden worker struck by an enemy runs `dropCargoUnderAttack` from inside `damageUnit`, which puts the load on its tile and stops the haul (`harvesting`/`mining` stay set so the job resumes later); `removeUnit` drops cargo too, so a death never destroys it. `updateDropPickups()` (from `main.js`) lets any empty-handed worker collect a pile it is standing on and `haulPickedUpDrop` routes it to a base — it skips workers where `isWorkerFightingBack`, otherwise a worker would snatch the load straight back mid-fight. Piles are drawn **after** units so a worker cannot hide its own load, and are gated on `isTileExplored` (a pile never moves, so remembering it leaks nothing).
 - **Combat:** buildings (base / armory / hut) take damage per tile via `damageBuildingTile`; `onBuildingTileDestroyed` retires the structure when its last tile falls. Soldiers never have a whole-building `hp` field — use `hutHealthStats` / `sumHpForTiles` to report health.
 - **Defend:** `defending` + `defendX/defendY` post held in `combat.js`; `updateDefender` engages enemies inside `DEFEND_RADIUS` of the post, drops them past `DEFEND_LEASH`, and walks back. Anything that calls `clearUnitOrders` (Move / Attack / Cancel) releases the post, so re-engaging from a post goes through `engageFromPost`, which restores the post afterwards.
 - **Training:** `trainingJobs` in `state.js`, logic in `training.js`. `trainUnitAtBase` / `trainSoldierAtArmory` only *enqueue* — `updateTraining(dt)` (called from `main.js`) ticks the head job per building key (`'base'` for the whole base, `armory:x,y` per armory) and calls `spawnUnitNear` when it completes. The trainee is **not** selected: the building stays selected so you can queue several. Caps count queued units (`trainingCapReached`) and are re-checked at pop time (`trainingCapFull`). `pruneTrainingJobs()` runs from `onBuildingTileDestroyed`; `resetTraining()` from `newMap` / init.

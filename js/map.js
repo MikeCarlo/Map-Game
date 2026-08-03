@@ -453,6 +453,7 @@ function newMap() {
   jetPulses = [];
   armories = [];
   deathMarks = [];
+  resetDrops();
   resetTraining();
   resetConstruction();
   updateVisibility();

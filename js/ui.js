@@ -5,6 +5,8 @@ function resourceNote(u) {
     parts.push(`Wood: ${u && u.carryingWood ? '1 carried, ' : ''}${woodInBase} base`);
   if (vireliumInBase > 0 || (u && u.carryingVirelium))
     parts.push(`Virelium: ${u && u.carryingVirelium ? '1 carried, ' : ''}${vireliumInBase} base`);
+  const onGround = countDrops();
+  if (onGround > 0) parts.push(`${onGround} dropped on the ground`);
   return parts.length ? '  |  ' + parts.join(' · ') : '';
 }
 
@@ -238,7 +240,8 @@ function updateUI() {
     document.getElementById('unitActions').style.display = 'grid';
     const whp = u.hp != null ? ` HP ${Math.ceil(u.hp)}/${u.maxHp}` : '';
     if (isWorkerFightingBack(u)) {
-      info.textContent = `Worker under attack — fighting back${whp}`;
+      const dumped = nearbyDroppedLoad(u) ? ' — load dropped here' : '';
+      info.textContent = `Worker under attack — fighting back${dumped}${whp}`;
       return;
     }
     if (actionMode === 'moveTarget') {

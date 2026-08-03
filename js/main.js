@@ -126,6 +126,7 @@ function gameLoop(now) {
     }
   }
 
+  if (updateDropPickups()) needDraw = true;
   if (separateIdleUnits()) needDraw = true;
 
   updateVisibility();

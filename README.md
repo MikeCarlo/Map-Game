@@ -195,10 +195,23 @@ they lose health, the same as soldiers.
 - A struck worker **swings back at whatever is hitting it**: 1 damage every
   1.5 s (a soldier does 4 every 0.85 s), so it loses almost every fight it
   starts and is really just buying time
-- It fights back where it stands — a worker never chases, never abandons its
-  job, and stops once the attacker leaves or is dead
+- It fights back where it stands — a worker never chases and stops once the
+  attacker leaves or is dead
 - A retaliating worker gets an orange ring and the info bar reads
   “Worker under attack — fighting back”
+
+**A laden worker puts its load down to fight.** Wood or Virelium it was hauling
+drops on the tile where it was jumped and stays there:
+
+- The pile shows as a pale crate (wood) or cyan bead (Virelium), and is drawn
+  over units so the worker standing on it never hides it
+- It will not grab the load back mid-fight — it fights first, collects after
+- Once the fight ends it picks the load up and carries on to a base, resuming
+  whatever it was cutting or mining
+- If the worker dies, the load stays on the ground; **any** empty-handed worker
+  that walks over a pile picks it up and hauls it home, so nothing is ever
+  destroyed by an ambush — it just has to be fetched
+- The info bar counts what is lying around: “2 dropped on the ground”
 
 Guard your harvesters with soldiers on **Defend**, or expect to keep retraining.
 

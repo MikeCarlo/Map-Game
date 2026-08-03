@@ -266,6 +266,7 @@ function updateDeathMarks(dt) {
 
 function removeUnit(u) {
   if (!u) return;
+  dropCarriedResources(u); // a load it was hauling stays where it fell
   spawnDeathMark(u);
   releaseAllClaimsForUnit(u.id);
   for (const other of units) {
@@ -318,6 +319,7 @@ function damageUnit(u, amount, attacker) {
   if (u.unitType === 'worker' && attacker && attacker.unitType === 'enemy') {
     u.retaliateTargetId = attacker.id;
     u.retaliateTimer = WORKER_RETALIATE_TIME;
+    dropCargoUnderAttack(u); // hands free to fight; the load waits on the ground
   }
   return false;
 }

@@ -175,6 +175,40 @@ function drawDefendPosts(pulse) {
   }
 }
 
+/**
+ * Cargo lying on the ground after a worker was jumped. Shown on any explored
+ * tile — a pile does not move, so remembering where it is gives nothing away.
+ */
+function drawDrops() {
+  if (!drops || !drops.length) return;
+  for (const d of drops) {
+    if (!isTileExplored(d.x, d.y)) continue;
+    // nudged off tile centre so it still reads when a unit is standing on it
+    const cx = camX + (d.x + 0.78) * TILE * zoom;
+    const cy = camY + (d.y + 0.78) * TILE * zoom;
+    const s = Math.max(3, 2.4 * zoom);
+    if (d.kind === 'wood') {
+      ctx.fillStyle = '#D7CCC8';   // paler than dirt so a pile reads on brown ground
+      ctx.fillRect(cx - s, cy - s * 0.6, s * 2, s * 1.2);
+      ctx.strokeStyle = '#3E2723'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx - s, cy - s * 0.6, s * 2, s * 1.2);
+    } else {
+      ctx.beginPath();
+      ctx.arc(cx, cy, s * 0.9, 0, Math.PI * 2);
+      ctx.fillStyle = '#00E5FF'; ctx.fill();
+      ctx.strokeStyle = '#006064'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    if (d.count > 1) {
+      ctx.font = `bold ${Math.max(9, 3 * zoom)}px system-ui, sans-serif`;
+      ctx.fillStyle = '#FFF';
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeText(String(d.count), cx + s, cy - s);
+      ctx.fillText(String(d.count), cx + s, cy - s);
+    }
+  }
+}
+
 /** Draw unit body as a pie-arc: full circle at full HP, half circle at 50%, etc. */
 /** Radial progress dial centred on a footprint of `size` tiles at (ox, oy) */
 function drawProgressDial(ox, oy, size, pct, color, label) {
@@ -465,6 +499,9 @@ function draw() {
       ctx.strokeStyle = '#006064'; ctx.lineWidth = 1; ctx.stroke();
     }
   }
+
+  // after the units: a worker fighting over its dropped load must not hide it
+  drawDrops();
 
   // dials last so the builder never hides its own progress
   drawConstructionDials();

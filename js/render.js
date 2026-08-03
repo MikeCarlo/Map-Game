@@ -242,15 +242,31 @@ function drawProgressDial(ox, oy, size, pct, color, label) {
     ctx.lineCap = 'butt';
   }
 
-  if (label && r > 9) {
-    ctx.fillStyle = '#FFF';
-    ctx.font = `bold ${Math.max(8, Math.round(r * 0.9))}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, cx, cy + 0.5);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-  }
+  if (label) drawDialBadge(cx, cy, r, label);
+}
+
+/**
+ * Queue count pinned to the top-right of a dial. Sized in screen pixels rather
+ * than tiles: at the zoom the map opens at, the dial itself is only a few
+ * pixels across, so a label scaled to it would never be readable.
+ */
+function drawDialBadge(cx, cy, r, text) {
+  const br = Math.max(8.5, Math.min(12, r * 0.75));
+  const bx = cx + r * 0.9, by = cy - r * 0.9;
+  ctx.beginPath();
+  ctx.arc(bx, by, br, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFEE55';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = '#111';
+  ctx.font = `bold ${Math.round(br * 1.1)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, bx, by + 0.5);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 }
 
 /** Dial in the middle of every building that is training */

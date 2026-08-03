@@ -122,15 +122,20 @@ function handleTap(clientX, clientY) {
   const selected = getSelectedUnits();
   const primary = selected[0] || null;
 
+  // Move is the one sticky mode: it stays armed so you can keep issuing moves.
+  // Tapping ✕ Move or picking a different unit is what turns it off.
   if (actionMode === 'moveTarget' && selected.length) {
-    const tile = screenToTile(clientX, clientY);
-    if (selected.length === 1) {
-      if (setMoveTarget(selected[0], tile.x, tile.y)) {
-        actionMode = null; updateUI(); draw();
-      }
-    } else if (setGroupMoveTarget(selected, tile.x, tile.y)) {
-      actionMode = null; updateUI(); draw();
+    const other = unitAtScreen(clientX, clientY);
+    if (other && !selected.some(u => u.id === other.id)) {
+      setSingleSelection(other.id);
+      actionMode = null;
+      updateUI(); draw();
+      return;
     }
+    const tile = screenToTile(clientX, clientY);
+    if (selected.length === 1) setMoveTarget(selected[0], tile.x, tile.y);
+    else setGroupMoveTarget(selected, tile.x, tile.y);
+    updateUI(); draw();
     return;
   }
 

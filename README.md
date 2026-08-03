@@ -137,6 +137,11 @@ Select a worker, then choose an action from the bottom bar. While targeting, the
 2. Tap any walkable destination
 3. Worker pathfinds around obstacles (A*) and walks there
 
+**Move stays on.** Unlike every other action, it does not switch itself off
+after one destination — keep tapping and the unit keeps re-routing, which is
+usually what you want when steering someone across the map. It ends when you
+tap **✕ Move** or tap a different unit (which selects that unit instead).
+
 ### Cut (wood)
 1. Tap **Cut**
 2. Tap a green forest tile (or near one — it will snap to the nearest available tree)

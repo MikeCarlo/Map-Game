@@ -187,7 +187,7 @@ function updateUI() {
     if (btnGroupDefend) btnGroupDefend.style.display = comp.allSoldiers ? '' : 'none';
 
     if (actionMode === 'moveTarget') {
-      info.textContent = `Move ${selectionSummary(selected)} — tap destination`;
+      info.textContent = `Move ${selectionSummary(selected)} — keep tapping destinations · ✕ Move to stop`;
       if (btnGroupMove) { btnGroupMove.textContent = '✕ Move'; btnGroupMove.classList.add('active'); }
     } else if (actionMode === 'attackTarget') {
       info.textContent = `Attack — tap an enemy or hut (${selectionSummary(selected)})`;
@@ -217,7 +217,7 @@ function updateUI() {
     document.getElementById('soldierActions').style.display = 'flex';
     const hp = u.hp != null ? ` HP ${Math.ceil(u.hp)}/${u.maxHp}` : '';
     if (actionMode === 'moveTarget') {
-      info.textContent = 'Tap a location to move the soldier';
+      info.textContent = 'Move stays on — keep tapping to move · ✕ Move to stop';
       btnSoldierMove.textContent = '✕ Move';
       btnSoldierMove.classList.add('active');
     } else if (actionMode === 'attackTarget') {
@@ -247,7 +247,7 @@ function updateUI() {
       return;
     }
     if (actionMode === 'moveTarget') {
-      info.textContent = 'Tap a location to move there';
+      info.textContent = 'Move stays on — keep tapping to move · ✕ Move to stop';
       btnMove.textContent = '✕ Move'; btnMove.classList.add('active');
     } else if (actionMode === 'cutTarget') {
       info.textContent = 'Tap a tree to start cutting';

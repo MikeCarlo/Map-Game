@@ -185,6 +185,23 @@ The placement area must be entirely clear dirt/stumps — no trees, rock, water,
 ### Cancel
 Clears the worker’s current orders and deselects it.
 
+### Getting attacked
+
+Workers have **8 HP** and can be killed. Their dot empties like a pie chart as
+they lose health, the same as soldiers.
+
+- Enemies hunt workers as readily as soldiers — an unguarded worker dies in
+  about **4 seconds**
+- A struck worker **swings back at whatever is hitting it**: 1 damage every
+  1.5 s (a soldier does 4 every 0.85 s), so it loses almost every fight it
+  starts and is really just buying time
+- It fights back where it stands — a worker never chases, never abandons its
+  job, and stops once the attacker leaves or is dead
+- A retaliating worker gets an orange ring and the info bar reads
+  “Worker under attack — fighting back”
+
+Guard your harvesters with soldiers on **Defend**, or expect to keep retraining.
+
 ---
 
 ## Soldier actions (dark dots with a ring)

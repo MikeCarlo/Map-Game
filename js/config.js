@@ -92,6 +92,12 @@ const HUT_SPAWN_INTERVAL_MAX = 32;
 const HUT_MAX_ALIVE_ENEMIES = 6;
 const ENEMY_MAX_HP = 12;
 const SOLDIER_MAX_HP = 20;
+// Workers are not fighters: they take hits, and swing back only when attacked
+const WORKER_MAX_HP = 8;
+const WORKER_ATTACK_DAMAGE = 1;
+const WORKER_ATTACK_INTERVAL = 1.5;
+const WORKER_ATTACK_RANGE = 1.35;
+const WORKER_RETALIATE_TIME = 6; // keeps swinging this long after the last hit
 const SOLDIER_ATTACK_DAMAGE = 4;
 const SOLDIER_ATTACK_INTERVAL = 0.85;
 const SOLDIER_ATTACK_RANGE = 1.35;

@@ -138,6 +138,8 @@ function makeUnit(x, y, unitType = 'worker') {
     attackHutId: null,
     attackTimer: 0,
     attackRepathTimer: 0,
+    retaliateTargetId: null,
+    retaliateTimer: 0,
     defending: false,
     defendX: null,
     defendY: null,
@@ -146,6 +148,9 @@ function makeUnit(x, y, unitType = 'worker') {
   if (unitType === 'soldier') {
     u.hp = SOLDIER_MAX_HP;
     u.maxHp = SOLDIER_MAX_HP;
+  } else if (unitType === 'worker') {
+    u.hp = WORKER_MAX_HP;
+    u.maxHp = WORKER_MAX_HP;
   } else if (unitType === 'enemy') {
     u.hp = ENEMY_MAX_HP;
     u.maxHp = ENEMY_MAX_HP;

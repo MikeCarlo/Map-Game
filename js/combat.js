@@ -273,14 +273,19 @@ function removeUnit(u) {
       other.attacking = false; other.attackTargetId = null; other.attackTimer = 0;
       other.path = []; other.pathIndex = 0; other.goalX = other.goalY = null;
     }
+    if (other.retaliateTargetId === u.id) {
+      other.retaliateTargetId = null; other.retaliateTimer = 0;
+    }
   }
   units = units.filter(x => x.id !== u.id);
+  const wasSelected = selectedUnitId === u.id || selectedUnitIds.includes(u.id);
   if (selectedUnitIds.includes(u.id)) {
     selectedUnitIds = selectedUnitIds.filter(id => id !== u.id);
     fullSelectionIds = fullSelectionIds.filter(id => id !== u.id);
     selectedUnitId = selectedUnitIds[0] ?? null;
   }
   if (selectedUnitId === u.id) selectedUnitId = null;
+  if (wasSelected) updateUI(); // the bottom bar must not keep offering a dead unit
 }
 
 function spawnEnemyFromHut(hut) {
@@ -302,18 +307,57 @@ function updateHuts(dt) {
   return changed;
 }
 
-function damageUnit(u, amount) {
+function damageUnit(u, amount, attacker) {
   if (!u || u.hp == null) return false;
   u.hp -= amount;
   if (u.hp <= 0) {
     removeUnit(u);
     return true;
   }
+  // A struck worker fights back — badly, and only at whoever is hitting it
+  if (u.unitType === 'worker' && attacker && attacker.unitType === 'enemy') {
+    u.retaliateTargetId = attacker.id;
+    u.retaliateTimer = WORKER_RETALIATE_TIME;
+  }
   return false;
+}
+
+/**
+ * Workers never chase: they swing at an adjacent attacker while they keep
+ * doing whatever they were doing, and give up once it leaves or the fight
+ * goes quiet.
+ */
+function updateWorkerRetaliation(dt) {
+  let changed = false;
+  for (const u of units.slice()) {
+    if (u.unitType !== 'worker' || u.retaliateTargetId == null) continue;
+    u.retaliateTimer -= dt;
+    const target = units.find(e => e.id === u.retaliateTargetId);
+    if (!target || u.retaliateTimer <= 0) {
+      u.retaliateTargetId = null;
+      u.retaliateTimer = 0;
+      continue;
+    }
+    if (Math.hypot(u.x - target.x, u.y - target.y) > WORKER_ATTACK_RANGE) continue;
+    u.attackTimer -= dt;
+    if (u.attackTimer <= 0) {
+      u.attackTimer = WORKER_ATTACK_INTERVAL;
+      if (damageUnit(target, WORKER_ATTACK_DAMAGE, u)) {
+        u.retaliateTargetId = null;
+        u.retaliateTimer = 0;
+      }
+      changed = true;
+    }
+  }
+  return changed;
+}
+function isWorkerFightingBack(u) {
+  return !!(u && u.unitType === 'worker' && u.retaliateTargetId != null && u.retaliateTimer > 0);
 }
 
 function updateCombat(dt) {
   let changed = false;
+  if (updateWorkerRetaliation(dt)) changed = true;
   for (const u of units.slice()) {
     if (u.unitType !== 'soldier') continue;
     if (u.defending && updateDefender(u, dt)) changed = true;
@@ -356,7 +400,7 @@ function updateCombat(dt) {
       u.attackTimer -= dt;
       if (u.attackTimer <= 0) {
         u.attackTimer = SOLDIER_ATTACK_INTERVAL;
-        if (damageUnit(target, SOLDIER_ATTACK_DAMAGE)) {
+        if (damageUnit(target, SOLDIER_ATTACK_DAMAGE, u)) {
           u.attacking = false; u.attackTargetId = null;
         }
         changed = true;
@@ -390,7 +434,7 @@ function updateCombat(dt) {
       e.attackTimer = (e.attackTimer || 0) - dt;
       if (e.attackTimer <= 0) {
         e.attackTimer = ENEMY_ATTACK_INTERVAL;
-        damageUnit(target, ENEMY_ATTACK_DAMAGE);
+        damageUnit(target, ENEMY_ATTACK_DAMAGE, e);
         changed = true;
       }
     } else if (!e.path.length || Math.hypot((e.goalX || 0) - target.x, (e.goalY || 0) - target.y) > 2) {

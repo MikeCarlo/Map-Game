@@ -441,6 +441,13 @@ function draw() {
     } else {
       ctx.beginPath(); ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
+      if (isWorkerFightingBack(u)) { // swinging back at whoever is on them
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 2 + pulse * 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 112, 67, ${0.5 + pulse * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
     if (u.carryingWood) {
       const wr = Math.max(3, 2.5 * zoom);

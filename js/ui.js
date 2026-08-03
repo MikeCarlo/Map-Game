@@ -236,6 +236,11 @@ function updateUI() {
 
   if (u) {
     document.getElementById('unitActions').style.display = 'grid';
+    const whp = u.hp != null ? ` HP ${Math.ceil(u.hp)}/${u.maxHp}` : '';
+    if (isWorkerFightingBack(u)) {
+      info.textContent = `Worker under attack — fighting back${whp}`;
+      return;
+    }
     if (actionMode === 'moveTarget') {
       info.textContent = 'Tap a location to move there';
       btnMove.textContent = '✕ Move'; btnMove.classList.add('active');
@@ -279,7 +284,7 @@ function updateUI() {
         ? `${what}… ${Math.round(buildProgress(u) * 100)}%`
         : `${what} — walking to the site…`;
     } else {
-      info.textContent = 'Worker — actions (double-tap for nearby workers)' + note + modeHint;
+      info.textContent = 'Worker' + whp + ' — actions (double-tap for nearby workers)' + note + modeHint;
     }
     return;
   }

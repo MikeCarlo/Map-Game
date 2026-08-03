@@ -33,8 +33,11 @@ function progressSignature() {
       : 'A';
   }
   const u = getSelectedUnit();
-  if (u && isBuildInProgress(u)) return `W${Math.round(buildProgress(u) * 100)}`;
-  return '';
+  if (!u) return '';
+  let sig = '';
+  if (isBuildInProgress(u)) sig += `W${Math.round(buildProgress(u) * 100)}`;
+  if (u.hp != null) sig += `H${Math.ceil(u.hp)}${isWorkerFightingBack(u) ? 'F' : ''}`;
+  return sig;
 }
 function refreshProgressInfo() {
   const sig = progressSignature();

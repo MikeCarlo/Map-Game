@@ -215,7 +215,9 @@ function drawProgressDial(ox, oy, size, pct, color, label) {
   const box = size * TILE * zoom;
   const cx = camX + (ox + size / 2) * TILE * zoom;
   const cy = camY + (oy + size / 2) * TILE * zoom;
-  const r = Math.max(5, box * 0.3); // stays visible zoomed out, still fits the footprint
+  // A dial carrying a queue count has to be big enough to read the digit: at the
+  // zoom the map opens at the footprint is only a few pixels across.
+  const r = Math.max(label ? 11 : 5, box * 0.3);
   const ring = Math.max(2, r * 0.32);
 
   // dark disc so the dial reads over any building color
@@ -242,31 +244,18 @@ function drawProgressDial(ox, oy, size, pct, color, label) {
     ctx.lineCap = 'butt';
   }
 
-  if (label) drawDialBadge(cx, cy, r, label);
-}
-
-/**
- * Queue count pinned to the top-right of a dial. Sized in screen pixels rather
- * than tiles: at the zoom the map opens at, the dial itself is only a few
- * pixels across, so a label scaled to it would never be readable.
- */
-function drawDialBadge(cx, cy, r, text) {
-  const br = Math.max(8.5, Math.min(12, r * 0.75));
-  const bx = cx + r * 0.9, by = cy - r * 0.9;
-  ctx.beginPath();
-  ctx.arc(bx, by, br, 0, Math.PI * 2);
-  ctx.fillStyle = '#FFEE55';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.fillStyle = '#111';
-  ctx.font = `bold ${Math.round(br * 1.1)}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, bx, by + 0.5);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
+  if (label) {
+    ctx.font = `bold ${Math.max(10, Math.round(r * 0.8))}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'; // halo, so it reads over the sweep
+    ctx.lineWidth = 3;
+    ctx.strokeText(label, cx, cy + 0.5);
+    ctx.fillStyle = '#FFEE55';
+    ctx.fillText(label, cx, cy + 0.5);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
 }
 
 /** Dial in the middle of every building that is training */

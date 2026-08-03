@@ -81,6 +81,7 @@ function updateUI() {
   const btnGroupCut = document.getElementById('btnGroupCut');
   const btnGroupMine = document.getElementById('btnGroupMine');
   const btnGroupAttack = document.getElementById('btnGroupAttack');
+  const btnGroupRepair = document.getElementById('btnGroupRepair');
   const btnSoldierDefend = document.getElementById('btnSoldierDefend');
   const btnGroupDefend = document.getElementById('btnGroupDefend');
 
@@ -181,6 +182,7 @@ function updateUI() {
 
     if (btnGroupCut) btnGroupCut.style.display = comp.allWorkers ? '' : 'none';
     if (btnGroupMine) btnGroupMine.style.display = comp.allWorkers ? '' : 'none';
+    if (btnGroupRepair) btnGroupRepair.style.display = comp.allWorkers ? '' : 'none';
     if (btnGroupAttack) btnGroupAttack.style.display = comp.allSoldiers ? '' : 'none';
     if (btnGroupDefend) btnGroupDefend.style.display = comp.allSoldiers ? '' : 'none';
 

@@ -28,6 +28,9 @@ let claimedMinerals = new Map();
 
 let playerBase = null;
 let armories = [];
+/** Queued training: { id, key, unitType, x, y, ox, oy, size, duration, remaining, blocked } */
+let trainingJobs = [];
+let nextTrainingJobId = 1;
 let huts = [];
 let nextHutId = 1;
 /** Fading ground stains: { x, y, age, maxAge, unitType } */

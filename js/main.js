@@ -14,12 +14,30 @@ function uiBottomInset() {
   return Math.max(100, window.innerHeight - ui.getBoundingClientRect().top + 8);
 }
 
+// Repaint the building bar only when the shown training text would differ
+let lastTrainingSig = '';
+function refreshTrainingInfo() {
+  if (!selectedBase && !selectedArmory) { lastTrainingSig = ''; return; }
+  const key = selectedBase ? trainingKeyForBase() : trainingKeyForArmory(selectedArmory);
+  const job = activeTrainingJob(key);
+  const sig = job
+    ? `${Math.round(trainingProgress(job) * 100)}|${job.blocked}|${trainingQueueLength(key)}`
+    : '';
+  if (sig === lastTrainingSig) return;
+  lastTrainingSig = sig;
+  updateUI();
+}
+
 let lastFrameTime = performance.now();
 function gameLoop(now) {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
   let needDraw = false;
 
+  if (updateTraining(dt)) {
+    needDraw = true;
+    refreshTrainingInfo(); // live progress in the info bar, only when it changes
+  }
   if (updateJets(dt)) needDraw = true;
   if (updateHuts(dt)) needDraw = true;
   if (updateCombat(dt)) needDraw = true;
@@ -270,7 +288,16 @@ document.getElementById('filterSoldiers').addEventListener('click', () => onFilt
 
 document.getElementById('btnTrain').addEventListener('click', () => {
   if (!selectedBase) return;
-  trainUnitAtBase(selectedBase.x, selectedBase.y);
+  if (!trainUnitAtBase(selectedBase.x, selectedBase.y)) {
+    const info = document.getElementById('info');
+    if (info) info.textContent = trainingQueueLength(trainingKeyForBase()) >= TRAIN_QUEUE_MAX
+      ? `Training queue full (${TRAIN_QUEUE_MAX})`
+      : 'Worker cap reached — upgrade the base first';
+  }
+});
+document.getElementById('btnCancelTrain').addEventListener('click', () => {
+  if (!cancelLastTraining(trainingKeyForBase())) return;
+  updateUI(); draw();
 });
 document.getElementById('btnUpgrade').addEventListener('click', () => {
   if (!playerBase) return;
@@ -285,7 +312,18 @@ document.getElementById('btnCancelBase').addEventListener('click', () => {
 
 document.getElementById('btnTrainSoldier').addEventListener('click', () => {
   if (!selectedArmory) return;
-  trainSoldierAtArmory(selectedArmory.x, selectedArmory.y);
+  if (!trainSoldierAtArmory(selectedArmory.x, selectedArmory.y)) {
+    const info = document.getElementById('info');
+    const key = trainingKeyForArmory(selectedArmory);
+    if (info) info.textContent = trainingQueueLength(key) >= TRAIN_QUEUE_MAX
+      ? `Training queue full (${TRAIN_QUEUE_MAX})`
+      : 'Soldier cap reached — build another armory';
+  }
+});
+document.getElementById('btnCancelTrainSoldier').addEventListener('click', () => {
+  if (!selectedArmory) return;
+  if (!cancelLastTraining(trainingKeyForArmory(selectedArmory))) return;
+  updateUI(); draw();
 });
 document.getElementById('btnCancelArmory').addEventListener('click', () => {
   selectedArmory = null; updateUI(); draw();
@@ -298,6 +336,7 @@ window.addEventListener('resize', resize);
   units = [spawnWorkerBesideBase(baseSpot)];
   armories = [];
   deathMarks = [];
+  resetTraining();
   updateVisibility();
   cameraPanEnabled = true;
   if (typeof updateCameraModeIndicator === 'function') updateCameraModeIndicator();

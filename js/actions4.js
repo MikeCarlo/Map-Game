@@ -157,24 +157,21 @@ function spawnUnitNear(bx, by, unitType) {
   return null;
 }
 
+// Training is queued and timed (training.js). The building stays selected so
+// you can order several in a row — the trainee is never auto-selected.
 function trainUnitAtBase(bx, by) {
   if (!playerBase) return false;
-  if (countWorkers() >= playerBase.maxWorkers) return false;
-  const u = spawnUnitNear(bx, by, 'worker');
-  if (!u) return false;
-  setSingleSelection(u.id);
-  actionMode = null;
+  const seg = findBaseSegmentAt(bx, by) || playerBase.segments[0];
+  if (!seg) return false;
+  if (!enqueueTraining(trainingKeyForBase(), 'worker', bx, by, seg.x, seg.y, BASE_SEGMENT_SIZE)) return false;
   updateUI(); draw();
   return true;
 }
 
 function trainSoldierAtArmory(ax, ay) {
-  if (!armories.length) return false;
-  if (countSoldiers() >= maxSoldiers()) return false;
-  const u = spawnUnitNear(ax, ay, 'soldier');
-  if (!u) return false;
-  setSingleSelection(u.id);
-  actionMode = null;
+  const a = findArmoryAt(ax, ay);
+  if (!a) return false;
+  if (!enqueueTraining(trainingKeyForArmory(a), 'soldier', ax, ay, a.x, a.y, ARMORY_SIZE)) return false;
   updateUI(); draw();
   return true;
 }

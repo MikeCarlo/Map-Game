@@ -214,10 +214,26 @@ or **Cancel** all release the post.
 ## Base actions (purple)
 
 1. Tap any tile of a base to select it
-2. **Train** — spawns a new worker on a walkable tile near the base
-3. **Cancel** — deselects the base
+2. **Train** — queues a worker (takes 5 s)
+3. **✕ Queue (n)** — cancels the last worker you queued
+4. **Cancel** — deselects the base
 
 New workers appear adjacent to the base if space is available.
+
+## Training queue
+
+Training takes time and is queued, so a barracks-style rhythm works:
+
+- The **building stays selected** after you tap Train — tap it again to queue
+  another. The trainee is never auto-selected, so your selection is never stolen.
+- A progress bar sits above the building, with a `+n` badge when more are queued
+- Worker **5 s**, soldier **8 s**; up to **5** in a queue per building
+- Each building trains one at a time; several armories train in parallel
+- Queued units count toward the cap, so you cannot over-order
+- **✕ Queue (n)** removes the most recently queued unit
+- If there is no free tile when a unit finishes, it waits ("waiting for space")
+  until one opens up
+- Destroy a building and its queue is discarded
 
 ---
 
@@ -257,6 +273,7 @@ js/map.js           # generation + walkability + elevation
 js/fog.js           # fog of war: explored / visible tile layers
 js/pathfinding.js   # A* pathfinding
 js/actions.js       # move / cut / mine / build / tunnel / train
+js/training.js      # queued, timed unit training at base / armory
 js/ui.js            # bottom bar labels & info text
 js/render.js        # canvas draw
 js/minimap.js       # explored-area overview + tap to jump

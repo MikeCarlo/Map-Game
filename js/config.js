@@ -123,6 +123,10 @@ const DEATH_MARK_DURATION = 30;
 const MOVE_SPEED = 5.5;
 const SOLDIER_MOVE_SPEED = 6.5;
 const HARVEST_TIME = 0.7;
+// Training takes time; the building keeps training while you keep it selected
+const TRAIN_WORKER_TIME = 5;
+const TRAIN_SOLDIER_TIME = 8;
+const TRAIN_QUEUE_MAX = 5;
 const REPAIR_TIME = 0.8;
 const REPAIR_AMOUNT = 4; // HP restored per repair tick
 const TUNNEL_CARVE_TIME = 1.2;

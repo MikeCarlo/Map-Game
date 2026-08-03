@@ -201,6 +201,7 @@ function onBuildingTileDestroyed(tx, ty) {
       }
     }
   }
+  if (typeof pruneTrainingJobs === 'function') pruneTrainingJobs();
   updateUI();
 }
 

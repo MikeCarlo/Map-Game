@@ -123,25 +123,43 @@ function updateUI() {
 
   if (selectedArmory) {
     document.getElementById('armoryActions').style.display = 'flex';
+    const key = trainingKeyForArmory(selectedArmory);
+    const queued = trainingQueueLength(key);
     const maxS = maxSoldiers();
     const curS = countSoldiers();
-    const atCap = curS >= maxS;
-    btnTrainSoldier.textContent = atCap ? `Train Soldier (full)` : `Train Soldier (${curS}/${maxS})`;
-    btnTrainSoldier.disabled = atCap || armories.length === 0;
-    info.textContent = `Armory — ${soldierCapNote()}${note}`;
+    const atCap = trainingCapReached('soldier');
+    const queueFull = queued >= TRAIN_QUEUE_MAX;
+    btnTrainSoldier.textContent = atCap
+      ? `Train Soldier (full)`
+      : `Train Soldier (${curS + queued}/${maxS})`;
+    btnTrainSoldier.disabled = atCap || queueFull || armories.length === 0;
+    const btnCancelTrainSoldier = document.getElementById('btnCancelTrainSoldier');
+    if (btnCancelTrainSoldier) {
+      btnCancelTrainSoldier.style.display = queued ? '' : 'none';
+      btnCancelTrainSoldier.textContent = `✕ Queue (${queued})`;
+    }
+    info.textContent = `Armory — ${soldierCapNote()}${trainingNote(key)}${note}`;
     return;
   }
 
   if (selectedBase) {
     document.getElementById('baseActions').style.display = 'flex';
+    const key = trainingKeyForBase();
+    const queued = trainingQueueLength(key);
     const maxW = playerBase ? playerBase.maxWorkers : 3;
     const level = playerBase ? playerBase.level : 1;
     const workers = countWorkers();
-    const atCap = workers >= maxW;
-    btnTrain.textContent = atCap ? `Train (full)` : `Train (${workers}/${maxW})`;
-    btnTrain.disabled = atCap;
+    const atCap = trainingCapReached('worker');
+    const queueFull = queued >= TRAIN_QUEUE_MAX;
+    btnTrain.textContent = atCap ? `Train (full)` : `Train (${workers + queued}/${maxW})`;
+    btnTrain.disabled = atCap || queueFull;
+    const btnCancelTrain = document.getElementById('btnCancelTrain');
+    if (btnCancelTrain) {
+      btnCancelTrain.style.display = queued ? '' : 'none';
+      btnCancelTrain.textContent = `✕ Queue (${queued})`;
+    }
     btnUpgrade.textContent = `Upgrade (Lv ${level} → ${level + 1})`;
-    info.textContent = `Base Lv ${level} — ${workerCapNote()}${note}`;
+    info.textContent = `Base Lv ${level} — ${workerCapNote()}${trainingNote(key)}${note}`;
     return;
   }
 

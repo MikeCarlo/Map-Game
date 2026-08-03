@@ -176,6 +176,34 @@ function drawDefendPosts(pulse) {
 }
 
 /** Draw unit body as a pie-arc: full circle at full HP, half circle at 50%, etc. */
+/** Progress bar across the top of every building that is currently training */
+function drawTrainingBars() {
+  if (typeof trainingJobs === 'undefined' || !trainingJobs.length) return;
+  const drawn = new Set();
+  for (const job of trainingJobs) {
+    if (drawn.has(job.key)) continue; // one active job per building
+    drawn.add(job.key);
+    const w = job.size * TILE * zoom;
+    const h = Math.max(3, 1.6 * zoom);
+    const x = Math.floor(camX + job.ox * TILE * zoom);
+    const y = Math.floor(camY + job.oy * TILE * zoom - h - 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(x, y, Math.ceil(w), Math.ceil(h));
+    ctx.fillStyle = job.blocked ? '#FF7043' : (job.unitType === 'soldier' ? '#FF8A80' : '#CE93D8');
+    ctx.fillRect(x, y, Math.ceil(w * trainingProgress(job)), Math.ceil(h));
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, Math.ceil(w) - 1, Math.ceil(h) - 1);
+    const queued = trainingQueueLength(job.key) - 1;
+    if (queued > 0 && zoom > 1.6) {
+      ctx.fillStyle = '#FFF';
+      ctx.font = `${Math.max(8, Math.round(2 * zoom))}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`+${queued}`, x + Math.ceil(w) + 3, y + h);
+    }
+  }
+}
+
 function drawUnitBody(cx, cy, radius, fillStyle, hp, maxHp) {
   const pct = (hp != null && maxHp > 0)
     ? Math.max(0.08, Math.min(1, hp / maxHp))
@@ -270,6 +298,8 @@ function draw() {
       ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(size), Math.ceil(size));
     }
   }
+
+  drawTrainingBars();
 
   if (selectedBase) {
     const sx = camX + selectedBase.x * TILE * zoom;

@@ -31,6 +31,8 @@ let armories = [];
 /** Queued training: { id, key, unitType, x, y, ox, oy, size, duration, remaining, blocked } */
 let trainingJobs = [];
 let nextTrainingJobId = 1;
+/** Base expansion raising itself: { x, y, duration, remaining } */
+let baseUpgrade = null;
 let huts = [];
 let nextHutId = 1;
 /** Fading ground stains: { x, y, age, maxAge, unitType } */
@@ -120,6 +122,7 @@ function makeUnit(x, y, unitType = 'worker') {
     mining: false, mineTimer: 0, mineTX: null, mineTY: null,
     carryingVirelium: false, returningMineral: false,
     building: false, buildKind: null, buildTX: null, buildTY: null,
+    buildTimer: 0, buildDuration: 0,
     repairing: false, repairTimer: 0, repairTX: null, repairTY: null,
     tunneling: false,
     tunnelStart: null,
@@ -249,6 +252,7 @@ function clearUnitOrders(u) {
   u.mining = false; u.mineTimer = 0; u.mineTX = u.mineTY = null;
   u.returningMineral = false; u.carryingVirelium = false;
   u.building = false; u.buildKind = null; u.buildTX = u.buildTY = null;
+  u.buildTimer = 0; u.buildDuration = 0;
   u.repairing = false; u.repairTimer = 0; u.repairTX = u.repairTY = null;
   u.tunneling = false; u.tunnelStart = null; u.tunnelEnd = null; u.tunnelCarvePath = null;
   u.carveTimer = 0; u.carveTileX = u.carveTileY = null;

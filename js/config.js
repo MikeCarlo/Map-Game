@@ -127,6 +127,10 @@ const HARVEST_TIME = 0.7;
 const TRAIN_WORKER_TIME = 5;
 const TRAIN_SOLDIER_TIME = 8;
 const TRAIN_QUEUE_MAX = 5;
+// Construction time: worker on site (build) / base raising a new wing (upgrade)
+const BUILD_ARMORY_TIME = 6;
+const BUILD_BASE_TIME = 9;
+const BASE_UPGRADE_TIME = 12;
 const REPAIR_TIME = 0.8;
 const REPAIR_AMOUNT = 4; // HP restored per repair tick
 const TUNNEL_CARVE_TIME = 1.2;

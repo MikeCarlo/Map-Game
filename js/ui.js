@@ -158,8 +158,17 @@ function updateUI() {
       btnCancelTrain.style.display = queued ? '' : 'none';
       btnCancelTrain.textContent = `✕ Queue (${queued})`;
     }
-    btnUpgrade.textContent = `Upgrade (Lv ${level} → ${level + 1})`;
-    info.textContent = `Base Lv ${level} — ${workerCapNote()}${trainingNote(key)}${note}`;
+    btnUpgrade.classList.remove('active');
+    if (baseUpgrade) {
+      btnUpgrade.textContent = `✕ Upgrading ${Math.round(baseUpgradeProgress() * 100)}%`;
+      btnUpgrade.classList.add('active');
+    } else {
+      btnUpgrade.textContent = `Upgrade (Lv ${level} → ${level + 1})`;
+    }
+    const upNote = baseUpgrade
+      ? ` · Expansion ${Math.round(baseUpgradeProgress() * 100)}%`
+      : '';
+    info.textContent = `Base Lv ${level} — ${workerCapNote()}${trainingNote(key)}${upNote}${note}`;
     return;
   }
 
@@ -265,7 +274,10 @@ function updateUI() {
     } else if (u.tunneling) {
       info.textContent = 'Tunneling through the mountain…';
     } else if (u.building) {
-      info.textContent = u.buildKind === 'armory' ? 'Building armory…' : 'Expanding base…';
+      const what = u.buildKind === 'armory' ? 'Building armory' : 'Expanding base';
+      info.textContent = isBuildInProgress(u)
+        ? `${what}… ${Math.round(buildProgress(u) * 100)}%`
+        : `${what} — walking to the site…`;
     } else {
       info.textContent = 'Worker — actions (double-tap for nearby workers)' + note + modeHint;
     }

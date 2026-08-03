@@ -133,6 +133,12 @@ function registerBaseSegment(ax, ay) {
   }
   placeBaseTiles(ax, ay);
 }
+/** Ground a worker is already putting a building on is off limits */
+function isUpgradeSpotFree(ax, ay) {
+  if (typeof footprintIsFree !== 'function') return true;
+  return footprintIsFree(ax, ay, BASE_FOOTPRINT, null);
+}
+
 function findUpgradeSpot() {
   if (!playerBase || !playerBase.segments.length) return null;
   const offsets = [
@@ -143,7 +149,7 @@ function findUpgradeSpot() {
   for (const seg of playerBase.segments) {
     for (const [ox, oy] of offsets) {
       const ax = seg.x + ox, ay = seg.y + oy;
-      if (canPlaceBase(ax, ay)) return { x: ax, y: ay };
+      if (canPlaceBase(ax, ay) && isUpgradeSpotFree(ax, ay)) return { x: ax, y: ay };
     }
   }
   for (const seg of playerBase.segments) {
@@ -152,7 +158,7 @@ function findUpgradeSpot() {
         for (let dx = -r * BASE_SEGMENT_SIZE; dx <= r * BASE_SEGMENT_SIZE; dx += BASE_SEGMENT_SIZE) {
           if (!dx && !dy) continue;
           const ax = seg.x + dx, ay = seg.y + dy;
-          if (canPlaceBase(ax, ay)) return { x: ax, y: ay };
+          if (canPlaceBase(ax, ay) && isUpgradeSpotFree(ax, ay)) return { x: ax, y: ay };
         }
   }
   return null;

@@ -169,9 +169,15 @@ Select a worker, then choose an action from the bottom bar. While targeting, the
 Tunnels let workers cross mountain ranges that would otherwise block them.
 
 ### Build
-1. Tap **Build**
+1. Tap **Build**, then **Base** or **Armory**
 2. Tap a clear dirt (or stump) area
-3. Worker walks to the spot and places an **L-shaped purple base**
+3. Worker walks to the spot, then **works on site while it goes up** —
+   armory **6 s**, base expansion **9 s**
+
+The site is marked with a dashed outline and an amber dial that fills as the
+work goes on; the info bar reads e.g. “Building armory… 44%”. Give the worker
+another order and the site is abandoned — nothing is placed. Ground already
+being built on cannot be claimed by a second build.
 
 **Base footprint:** 7×3 horizontal leg + 3×7 vertical leg (3 tiles thick).  
 The placement area must be entirely clear dirt/stumps — no trees, rock, water, or existing base tiles.
@@ -216,9 +222,13 @@ or **Cancel** all release the post.
 1. Tap any tile of a base to select it
 2. **Train** — queues a worker (takes 5 s)
 3. **✕ Queue (n)** — cancels the last worker you queued
-4. **Cancel** — deselects the base
+4. **Upgrade** — starts a new 3×3 wing (+3 worker cap). It takes **12 s**: the
+   site is outlined next to the base with a dial, and the button turns into
+   **✕ Upgrading n%** — tap it again to call the expansion off
+5. **Cancel** — deselects the base
 
-New workers appear adjacent to the base if space is available.
+New workers appear adjacent to the base if space is available. No worker is
+needed for an upgrade, but the base can only raise one wing at a time.
 
 ## Training queue
 
@@ -275,6 +285,7 @@ js/fog.js           # fog of war: explored / visible tile layers
 js/pathfinding.js   # A* pathfinding
 js/actions.js       # move / cut / mine / build / tunnel / train
 js/training.js      # queued, timed unit training at base / armory
+js/construction.js  # build times for armory / base expansion + upgrades
 js/ui.js            # bottom bar labels & info text
 js/render.js        # canvas draw
 js/minimap.js       # explored-area overview + tap to jump

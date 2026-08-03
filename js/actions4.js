@@ -1,8 +1,7 @@
+/** Starts a timed expansion; the segment appears when it finishes. */
 function upgradeBase() {
   if (!playerBase) return false;
-  const spot = findUpgradeSpot();
-  if (!spot) return false;
-  registerBaseSegment(spot.x, spot.y);
+  if (!startBaseUpgrade()) return false;
   updateUI(); draw();
   return true;
 }
@@ -30,8 +29,10 @@ function registerArmory(ax, ay) {
 function setBuildTarget(u, worldX, worldY, kind) {
   if (u.unitType !== 'worker') return false;
   const ax = Math.floor(worldX), ay = Math.floor(worldY);
+  const footprint = kind === 'armory' ? ARMORY_FOOTPRINT : BASE_FOOTPRINT;
   const ok = kind === 'armory' ? canPlaceArmory(ax, ay) : canPlaceBase(ax, ay);
   if (!ok) return false;
+  if (!footprintIsFree(ax, ay, footprint, u.id)) return false; // someone is already building there
   const sx = Math.floor(u.x), sy = Math.floor(u.y);
   let tiles = aStar(sx, sy, ax, ay, false) || pathToClosest(sx, sy, ax, ay);
   if (!tiles || !tiles.length) return false;
@@ -40,6 +41,25 @@ function setBuildTarget(u, worldX, worldY, kind) {
   u.buildTX = ax; u.buildTY = ay;
   u.harvesting = false; u.carryingWood = false; u.returningToBase = false;
   return applyPath(u, tiles);
+}
+
+/** On arrival the worker starts the clock; the building appears when it runs out. */
+function startBuildOnArrival(u) {
+  if (!u.building) return;
+  if (u.buildTX === null || u.buildTY === null) { clearUnitOrders(u); updateUI(); return; }
+  const ok = u.buildKind === 'armory'
+    ? canPlaceArmory(u.buildTX, u.buildTY)
+    : canPlaceBase(u.buildTX, u.buildTY);
+  if (!ok) {
+    clearUnitOrders(u);
+    const info = document.getElementById('info');
+    if (info) info.textContent = 'Build site is no longer clear';
+    updateUI();
+    return;
+  }
+  u.buildDuration = buildTimeFor(u.buildKind);
+  u.buildTimer = u.buildDuration;
+  updateUI();
 }
 
 function finishBuild(u) {
@@ -53,6 +73,7 @@ function finishBuild(u) {
     if (free) { u.x = free.x + 0.5; u.y = free.y + 0.5; }
   }
   u.building = false; u.buildKind = null; u.buildTX = u.buildTY = null;
+  u.buildTimer = 0; u.buildDuration = 0;
   u.path = []; u.pathIndex = 0; u.goalX = u.goalY = null;
   updateUI();
 }

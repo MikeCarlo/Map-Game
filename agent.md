@@ -29,7 +29,7 @@ Order matters (globals, no modules):
 ```
 config.js → state.js → map.js → fog.js → pathfinding.js
 → actions1.js → actions2.js → actions3.js → actions4.js → actions5.js
-→ buildings.js → training.js → combat.js → ui.js → render.js → minimap.js → input.js → main.js
+→ buildings.js → training.js → construction.js → combat.js → ui.js → render.js → minimap.js → input.js → main.js
 ```
 
 `js/actions.js` is a **stub only** (comment pointing at the split files). Do not put logic there.
@@ -50,6 +50,7 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 | `js/actions5.js` | Repair (damaged friendly base/armory tiles) |
 | `js/buildings.js` | Per-tile building HP, color fade, damage/repair helpers |
 | `js/training.js` | Training queue: timed worker/soldier jobs per building |
+| `js/construction.js` | Build timers: worker build sites + timed base upgrade |
 | `js/combat.js` | Soldiers, enemies, hut spawn, attack targeting |
 | `js/ui.js` | Bottom bar visibility, info text, selection chrome |
 | `js/render.js` | Canvas draw, pie-arc unit HP, death stains |
@@ -67,6 +68,7 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 - **Combat:** buildings (base / armory / hut) take damage per tile via `damageBuildingTile`; `onBuildingTileDestroyed` retires the structure when its last tile falls. Soldiers never have a whole-building `hp` field — use `hutHealthStats` / `sumHpForTiles` to report health.
 - **Defend:** `defending` + `defendX/defendY` post held in `combat.js`; `updateDefender` engages enemies inside `DEFEND_RADIUS` of the post, drops them past `DEFEND_LEASH`, and walks back. Anything that calls `clearUnitOrders` (Move / Attack / Cancel) releases the post, so re-engaging from a post goes through `engageFromPost`, which restores the post afterwards.
 - **Training:** `trainingJobs` in `state.js`, logic in `training.js`. `trainUnitAtBase` / `trainSoldierAtArmory` only *enqueue* — `updateTraining(dt)` (called from `main.js`) ticks the head job per building key (`'base'` for the whole base, `armory:x,y` per armory) and calls `spawnUnitNear` when it completes. The trainee is **not** selected: the building stays selected so you can queue several. Caps count queued units (`trainingCapReached`) and are re-checked at pop time (`trainingCapFull`). `pruneTrainingJobs()` runs from `onBuildingTileDestroyed`; `resetTraining()` from `newMap` / init.
+- **Construction:** buildings take time. A worker build arrives → `startBuildOnArrival` sets `u.buildTimer` (`BUILD_ARMORY_TIME` / `BUILD_BASE_TIME`), `main.js` ticks it, `finishBuild` places the tiles. The base **Upgrade** button has no worker: `startBaseUpgrade` puts a self-raising site in `baseUpgrade` (`state.js`) that `updateBaseUpgrade(dt)` finishes after `BASE_UPGRADE_TIME`; the button doubles as cancel. `footprintIsFree` / `isReservedByConstruction` stop two builds claiming the same ground. `constructionSites()` feeds the renderer.
 - **Harvest pattern:** one resource unit per trip; worker must return beside base to deposit, then continue.
 - **Buildings:** multi-tile footprints; **per-tile HP** in `buildingHpMap`. Color lerps toward grey as HP drops. Aggregate % shown when selecting base/armory.
 - **Fog of war:** two `Uint8Array(MAP_W * MAP_H)` layers in `fog.js`. `updateVisibility()` runs once per frame from `main.js` (~0.1 ms) — it clears `visibleMap` and re-stamps a disc per player unit / base segment / armory; `exploredMap` only ever grows. Anything that reveals live state (enemy units, jet pulses, death stains, hut damage, enemy counts in the info bar) must check `isTileVisible` / `isPointVisible`; anything the player could plausibly remember (terrain, resource auto-search targets, hut selection) checks `isTileExplored`. `FOG_ENABLED = false` in `config.js` turns the whole thing off. **Known gap:** A* still paths on the true map, so units route around unseen obstacles.

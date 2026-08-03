@@ -454,6 +454,7 @@ function newMap() {
   armories = [];
   deathMarks = [];
   resetTraining();
+  resetConstruction();
   updateVisibility();
   updateUI(); draw();
 }

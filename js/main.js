@@ -14,17 +14,32 @@ function uiBottomInset() {
   return Math.max(100, window.innerHeight - ui.getBoundingClientRect().top + 8);
 }
 
-// Repaint the building bar only when the shown training text would differ
-let lastTrainingSig = '';
-function refreshTrainingInfo() {
-  if (!selectedBase && !selectedArmory) { lastTrainingSig = ''; return; }
-  const key = selectedBase ? trainingKeyForBase() : trainingKeyForArmory(selectedArmory);
-  const job = activeTrainingJob(key);
-  const sig = job
-    ? `${Math.round(trainingProgress(job) * 100)}|${job.blocked}|${trainingQueueLength(key)}`
-    : '';
-  if (sig === lastTrainingSig) return;
-  lastTrainingSig = sig;
+// Repaint the bottom bar only when the progress text it shows would differ
+let lastProgressSig = '';
+function progressSignature() {
+  if (selectedBase) {
+    const job = activeTrainingJob(trainingKeyForBase());
+    const t = job
+      ? `${Math.round(trainingProgress(job) * 100)}|${job.blocked}|${trainingQueueLength(trainingKeyForBase())}`
+      : '';
+    const up = baseUpgrade ? Math.round(baseUpgradeProgress() * 100) : '';
+    return `B${t}/${up}`;
+  }
+  if (selectedArmory) {
+    const key = trainingKeyForArmory(selectedArmory);
+    const job = activeTrainingJob(key);
+    return job
+      ? `A${Math.round(trainingProgress(job) * 100)}|${job.blocked}|${trainingQueueLength(key)}`
+      : 'A';
+  }
+  const u = getSelectedUnit();
+  if (u && isBuildInProgress(u)) return `W${Math.round(buildProgress(u) * 100)}`;
+  return '';
+}
+function refreshProgressInfo() {
+  const sig = progressSignature();
+  if (sig === lastProgressSig) return;
+  lastProgressSig = sig;
   updateUI();
 }
 
@@ -34,10 +49,8 @@ function gameLoop(now) {
   lastFrameTime = now;
   let needDraw = false;
 
-  if (updateTraining(dt)) {
-    needDraw = true;
-    refreshTrainingInfo(); // live progress in the info bar, only when it changes
-  }
+  if (updateTraining(dt)) needDraw = true;
+  if (updateBaseUpgrade(dt)) needDraw = true;
   if (updateJets(dt)) needDraw = true;
   if (updateHuts(dt)) needDraw = true;
   if (updateCombat(dt)) needDraw = true;
@@ -52,6 +65,11 @@ function gameLoop(now) {
     if (u.mining && u.mineTimer > 0 && !u.carryingVirelium) {
       u.mineTimer -= dt;
       if (u.mineTimer <= 0) finishMine(u);
+      needDraw = true;
+    }
+    if (u.building && u.buildTimer > 0) {
+      u.buildTimer -= dt;
+      if (u.buildTimer <= 0) finishBuild(u);
       needDraw = true;
     }
     if (u.repairing && u.repairTimer > 0) {
@@ -86,7 +104,7 @@ function gameLoop(now) {
           else if (u.tunneling) finishTunnel(u);
           else if (u.harvesting) startHarvestOnArrival(u);
           else if (u.mining) startMineOnArrival(u);
-          else if (u.building) finishBuild(u);
+          else if (u.building) startBuildOnArrival(u);
           else if (u.repairing) startRepairOnArrival(u);
         }
       } else {
@@ -108,6 +126,8 @@ function gameLoop(now) {
   if (separateIdleUnits()) needDraw = true;
 
   updateVisibility();
+
+  refreshProgressInfo();
 
   if (selectedUnitIds.length || selectedUnitId != null || huts.length || countEnemies() || deathMarks.length) needDraw = true;
 
@@ -301,6 +321,11 @@ document.getElementById('btnCancelTrain').addEventListener('click', () => {
 });
 document.getElementById('btnUpgrade').addEventListener('click', () => {
   if (!playerBase) return;
+  if (baseUpgrade) { // the button doubles as cancel while the wing goes up
+    cancelBaseUpgrade();
+    updateUI(); draw();
+    return;
+  }
   if (!upgradeBase()) {
     const info = document.getElementById('info');
     if (info) info.textContent = 'No clear space to expand the base (need a free 3×3)';
@@ -337,6 +362,7 @@ window.addEventListener('resize', resize);
   armories = [];
   deathMarks = [];
   resetTraining();
+  resetConstruction();
   updateVisibility();
   cameraPanEnabled = true;
   if (typeof updateCameraModeIndicator === 'function') updateCameraModeIndicator();

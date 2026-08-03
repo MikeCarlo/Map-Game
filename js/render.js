@@ -176,55 +176,86 @@ function drawDefendPosts(pulse) {
 }
 
 /** Draw unit body as a pie-arc: full circle at full HP, half circle at 50%, etc. */
-/** Radial progress dial in the middle of every building that is training */
+/** Radial progress dial centred on a footprint of `size` tiles at (ox, oy) */
+function drawProgressDial(ox, oy, size, pct, color, label) {
+  const box = size * TILE * zoom;
+  const cx = camX + (ox + size / 2) * TILE * zoom;
+  const cy = camY + (oy + size / 2) * TILE * zoom;
+  const r = Math.max(5, box * 0.3); // stays visible zoomed out, still fits the footprint
+  const ring = Math.max(2, r * 0.32);
+
+  // dark disc so the dial reads over any building color
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + ring * 0.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fill();
+
+  // unfilled track
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = ring;
+  ctx.stroke();
+
+  // progress sweep, clockwise from 12 o'clock
+  if (pct > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = ring;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
+  if (label && r > 9) {
+    ctx.fillStyle = '#FFF';
+    ctx.font = `bold ${Math.max(8, Math.round(r * 0.9))}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx, cy + 0.5);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+}
+
+/** Dial in the middle of every building that is training */
 function drawTrainingDials() {
   if (typeof trainingJobs === 'undefined' || !trainingJobs.length) return;
   const drawn = new Set();
   for (const job of trainingJobs) {
     if (drawn.has(job.key)) continue; // one active job per building
     drawn.add(job.key);
-    const box = job.size * TILE * zoom;
-    const cx = camX + (job.ox + job.size / 2) * TILE * zoom;
-    const cy = camY + (job.oy + job.size / 2) * TILE * zoom;
-    const r = Math.max(5, box * 0.3); // stays visible zoomed out, still fits the footprint
-    const ring = Math.max(2, r * 0.32);
     const color = job.blocked ? '#FF7043' : (job.unitType === 'soldier' ? '#FF8A80' : '#E1BEE7');
-
-    // dark disc so the dial reads over any building color
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + ring * 0.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fill();
-
-    // unfilled track
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = ring;
-    ctx.stroke();
-
-    // progress sweep, clockwise from 12 o'clock
-    const pct = trainingProgress(job);
-    if (pct > 0) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = ring;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-    }
-
     const queued = trainingQueueLength(job.key) - 1;
-    if (queued > 0 && r > 9) {
-      ctx.fillStyle = '#FFF';
-      ctx.font = `bold ${Math.max(8, Math.round(r * 0.9))}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`+${queued}`, cx, cy + 0.5);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-    }
+    drawProgressDial(job.ox, job.oy, job.size, trainingProgress(job), color,
+      queued > 0 ? `+${queued}` : '');
+  }
+}
+
+/** Ground marked out for a building that is still going up */
+function drawConstructionSites() {
+  if (typeof constructionSites !== 'function') return;
+  const t = TILE * zoom;
+  for (const s of constructionSites()) {
+    const sx = camX + s.x * t, sy = camY + s.y * t;
+    const box = s.size * t;
+    ctx.fillStyle = 'rgba(255, 183, 77, 0.18)';
+    ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(box), Math.ceil(box));
+    ctx.save();
+    ctx.setLineDash([Math.max(3, 2 * zoom), Math.max(3, 2 * zoom)]);
+    ctx.strokeStyle = s.kind === 'armory' ? '#FF8A80' : '#CE93D8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(Math.floor(sx) + 1, Math.floor(sy) + 1, Math.ceil(box) - 2, Math.ceil(box) - 2);
+    ctx.restore();
+  }
+}
+
+/** Progress dial for each site, drawn over the units */
+function drawConstructionDials() {
+  if (typeof constructionSites !== 'function') return;
+  for (const s of constructionSites()) {
+    drawProgressDial(s.x, s.y, s.size, s.pct, '#FFB74D', '');
   }
 }
 
@@ -323,7 +354,7 @@ function draw() {
     }
   }
 
-  drawTrainingDials();
+  drawConstructionSites();
 
   if (selectedBase) {
     const sx = camX + selectedBase.x * TILE * zoom;
@@ -427,6 +458,10 @@ function draw() {
       ctx.strokeStyle = '#006064'; ctx.lineWidth = 1; ctx.stroke();
     }
   }
+
+  // dials last so the builder never hides its own progress
+  drawConstructionDials();
+  drawTrainingDials();
 
   drawBoxSelect();
   drawSelectModeFrame();

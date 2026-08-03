@@ -176,30 +176,54 @@ function drawDefendPosts(pulse) {
 }
 
 /** Draw unit body as a pie-arc: full circle at full HP, half circle at 50%, etc. */
-/** Progress bar across the top of every building that is currently training */
-function drawTrainingBars() {
+/** Radial progress dial in the middle of every building that is training */
+function drawTrainingDials() {
   if (typeof trainingJobs === 'undefined' || !trainingJobs.length) return;
   const drawn = new Set();
   for (const job of trainingJobs) {
     if (drawn.has(job.key)) continue; // one active job per building
     drawn.add(job.key);
-    const w = job.size * TILE * zoom;
-    const h = Math.max(3, 1.6 * zoom);
-    const x = Math.floor(camX + job.ox * TILE * zoom);
-    const y = Math.floor(camY + job.oy * TILE * zoom - h - 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(x, y, Math.ceil(w), Math.ceil(h));
-    ctx.fillStyle = job.blocked ? '#FF7043' : (job.unitType === 'soldier' ? '#FF8A80' : '#CE93D8');
-    ctx.fillRect(x, y, Math.ceil(w * trainingProgress(job)), Math.ceil(h));
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, Math.ceil(w) - 1, Math.ceil(h) - 1);
+    const box = job.size * TILE * zoom;
+    const cx = camX + (job.ox + job.size / 2) * TILE * zoom;
+    const cy = camY + (job.oy + job.size / 2) * TILE * zoom;
+    const r = Math.max(5, box * 0.3); // stays visible zoomed out, still fits the footprint
+    const ring = Math.max(2, r * 0.32);
+    const color = job.blocked ? '#FF7043' : (job.unitType === 'soldier' ? '#FF8A80' : '#E1BEE7');
+
+    // dark disc so the dial reads over any building color
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + ring * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fill();
+
+    // unfilled track
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = ring;
+    ctx.stroke();
+
+    // progress sweep, clockwise from 12 o'clock
+    const pct = trainingProgress(job);
+    if (pct > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = ring;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
     const queued = trainingQueueLength(job.key) - 1;
-    if (queued > 0 && zoom > 1.6) {
+    if (queued > 0 && r > 9) {
       ctx.fillStyle = '#FFF';
-      ctx.font = `${Math.max(8, Math.round(2 * zoom))}px sans-serif`;
+      ctx.font = `bold ${Math.max(8, Math.round(r * 0.9))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`+${queued}`, cx, cy + 0.5);
       ctx.textAlign = 'left';
-      ctx.fillText(`+${queued}`, x + Math.ceil(w) + 3, y + h);
+      ctx.textBaseline = 'alphabetic';
     }
   }
 }
@@ -299,7 +323,7 @@ function draw() {
     }
   }
 
-  drawTrainingBars();
+  drawTrainingDials();
 
   if (selectedBase) {
     const sx = camX + selectedBase.x * TILE * zoom;

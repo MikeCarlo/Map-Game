@@ -131,6 +131,7 @@ function gameLoop(now) {
 
   updateVisibility();
 
+  updateTutorial();
   refreshProgressInfo();
 
   if (selectedUnitIds.length || selectedUnitId != null || huts.length || countEnemies() || deathMarks.length) needDraw = true;
@@ -141,6 +142,11 @@ function gameLoop(now) {
 requestAnimationFrame(gameLoop);
 
 document.getElementById('btnNew').addEventListener('click', newMap);
+document.getElementById('btnMenu').addEventListener('click', () => {
+  stopTutorial();
+  showLanding();
+  buildLandingLevelButtons(); // reflect anything just completed
+});
 document.getElementById('btnResetView').addEventListener('click', () => {
   const bottom = uiBottomInset();
   zoom = Math.min((window.innerWidth * 0.9) / (MAP_W * TILE), ((window.innerHeight - bottom) * 0.95) / (MAP_H * TILE));
@@ -358,19 +364,16 @@ document.getElementById('btnCancelArmory').addEventListener('click', () => {
   selectedArmory = null; updateUI(); draw();
 });
 
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => {
+  resize();
+  const tut = document.getElementById('tutorial');
+  if (tut && tut.style.display !== 'none') positionTutorialPanel(tut);
+});
 
 (function initGame() {
-  const { baseSpot } = generateMap();
-  units = [spawnWorkerBesideBase(baseSpot)];
-  armories = [];
-  deathMarks = [];
-  resetTraining();
-  resetConstruction();
-  updateVisibility();
-  cameraPanEnabled = true;
-  if (typeof updateCameraModeIndicator === 'function') updateCameraModeIndicator();
+  // No world until the player picks one on the landing screen.
+  buildLandingSizeButtons();
+  buildLandingLevelButtons();
+  showLanding();
   resize();
-  setTimeout(() => document.getElementById('btnResetView').click(), 50);
-  updateUI();
 })();

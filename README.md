@@ -8,6 +8,36 @@ Or open [index.html](index.html) after cloning, or run a local server.
 
 ---
 
+## Starting a game
+
+The game opens on a landing screen rather than dropping you straight into a
+world:
+
+- **New game** — pick a map size and play. Small **64 × 64**, Medium
+  **96 × 96**, Large **128 × 128**. Terrain density scales with the size, so a
+  small map is a compact version of the same world, not a cramped one.
+- **Learn to play** — six short guided levels, one mechanic at a time.
+
+Tap **Menu** in the bottom bar at any point to come back here.
+
+### Tutorial levels
+
+| # | Level | What it teaches |
+|---|-------|-----------------|
+| 1 | Getting around | Selecting a unit, Move, and why Move stays on |
+| 2 | Cutting wood | Cut, the carry-one-per-trip loop, banking wood |
+| 3 | Mining Virelium | Finding deposits, Mine, heavier cargo |
+| 4 | Growing your base | Training a worker, building an armory |
+| 5 | Soldiers and defence | Training a soldier, setting a Defend post |
+| 6 | Enemies and huts | Box-select, Attack, clearing a hut |
+
+Each level checks your real game state — there is no scripted path, you
+actually do the thing. Levels seed whatever they need (level 5 hands you an
+armory), so you can jump straight to the one you want. **Skip step** moves past
+anything you are stuck on, and finished levels get a green tick on the menu.
+
+---
+
 ## How to run
 
 ```bash

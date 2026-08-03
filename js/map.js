@@ -57,7 +57,7 @@ function setRock(m, x, y, thickness) {
       }
 }
 function generateRockVeins(m) {
-  const ranges = rand(3, 6);
+  const ranges = scaledCount(rand(3, 6), 2);
   for (let r = 0; r < ranges; r++) {
     let x, y, dx, dy;
     const edge = rand(0, 3);
@@ -81,7 +81,9 @@ function generateRockVeins(m) {
   }
 }
 function generateWater(m) {
-  const edge = rand(0, 3), baseDepth = rand(10, 20);
+  // ocean depth is a share of the map, not a fixed tile count
+  const shore = Math.min(1, MAP_H / 128);
+  const edge = rand(0, 3), baseDepth = Math.max(4, Math.round(rand(10, 20) * shore));
   const coast = new Array(edge === 0 || edge === 2 ? MAP_W : MAP_H);
   let offset = 0;
   for (let i = 0; i < coast.length; i++) {
@@ -98,7 +100,7 @@ function generateWater(m) {
   else if (edge === 2) for (let x = 0; x < MAP_W; x++) for (let y = MAP_H - Math.max(3, coast[x]); y < MAP_H; y++) m[y][x] = TILE_WATER;
   else for (let y = 0; y < MAP_H; y++) for (let x = 0; x < Math.max(3, coast[y]); x++) m[y][x] = TILE_WATER;
 
-  const numRivers = rand(1, 3);
+  const numRivers = scaledCount(rand(1, 3), 1);
   for (let r = 0; r < numRivers; r++) {
     let x, y, dx, dy;
     if (edge === 0) { x = rand(8, MAP_W - 9); y = coast[x] || baseDepth; dx = rand(-1, 1); dy = 1; }
@@ -106,7 +108,7 @@ function generateWater(m) {
     else if (edge === 2) { x = rand(8, MAP_W - 9); y = MAP_H - (coast[x] || baseDepth); dx = rand(-1, 1); dy = -1; }
     else { x = coast[rand(0, MAP_H-1)] || baseDepth; y = rand(8, MAP_H - 9); dx = 1; dy = rand(-1, 1); }
     if (!dx && !dy) dy = edge === 0 ? 1 : -1;
-    const length = rand(40, 90); let width = rand(1, 2);
+    const length = Math.round(rand(40, 90) * Math.min(1, MAP_H / 128)); let width = rand(1, 2);
     for (let i = 0; i < length; i++) {
       for (let w = -width; w <= width; w++) {
         const nx = x + (Math.abs(dx) > Math.abs(dy) ? 0 : w);
@@ -148,7 +150,7 @@ function placeTree(m, dens, x, y) {
   }
 }
 function generateTrees(m, dens) {
-  const numForests = rand(7, 13);
+  const numForests = scaledCount(rand(7, 13), 4);
   for (let f = 0; f < numForests; f++) {
     let cx = rand(8, MAP_W - 9), cy = rand(8, MAP_H - 9);
     if (m[cy][cx] !== TILE_DIRT) continue;
@@ -193,12 +195,13 @@ function generateTrees(m, dens) {
 function generateJets(m, minerals) {
   jets = [];
   jetPulses = [];
-  const jetCount = rand(2, 4);
+  const jetCount = scaledCount(rand(2, 4), 1);
   for (let j = 0; j < jetCount; j++) {
     let cx, cy, ok = false;
     for (let attempt = 0; attempt < 80 && !ok; attempt++) {
-      cx = rand(20, MAP_W - 21);
-      cy = rand(20, MAP_H - 21);
+      const inset = Math.min(20, Math.floor(MAP_W / 5));
+      cx = rand(inset, MAP_W - inset - 1);
+      cy = rand(inset, MAP_H - inset - 1);
       if (m[cy][cx] === TILE_DIRT || m[cy][cx] === TILE_STUMP) ok = true;
     }
     if (!ok) continue;
@@ -368,7 +371,8 @@ function canPlaceHutOn(m, ax, ay) {
 
 function placeEnemyHut(m, dens, minerals, baseSpot) {
   huts = [];
-  const minDist = 28;
+  // far enough to feel like enemy territory, but reachable on a small map
+  const minDist = Math.max(14, Math.min(28, Math.round(Math.min(MAP_W, MAP_H) * 0.28)));
   let placed = null;
   for (let attempt = 0; attempt < 120; attempt++) {
     const ax = rand(6, MAP_W - HUT_SIZE - 6);

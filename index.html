@@ -8,9 +8,23 @@
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="landing">
+  <div class="landing-card">
+    <h1>Map Game</h1>
+    <p class="landing-tag">Harvest, build, defend — a pixel strategy prototype</p>
+
+    <h2>New game</h2>
+    <div id="landingSizes" class="landing-sizes"></div>
+
+    <h2>Learn to play</h2>
+    <p class="landing-tag">Short guided levels, one mechanic at a time</p>
+    <div id="landingLevels" class="landing-levels"></div>
+  </div>
+</div>
 <div id="cameraMode" class="camera-mode pan-on" title="Camera pan ON — double-tap to lock">PAN</div>
 <canvas id="minimap" title="Explored map — tap to jump there"></canvas>
 <div id="info">Tap a red dot or purple base to select</div>
+<div id="tutorial"></div>
 <div id="ui">
   <div id="selectionFilters" class="selection-filters" style="display:none">
     <button type="button" class="filter-chip" data-filter="all" id="filterAll">All</button>
@@ -20,6 +34,7 @@
   <div id="mapActions">
     <button id="btnNew">New Map</button>
     <button id="btnResetView">Reset View</button>
+    <button id="btnMenu">Menu</button>
   </div>
   <div id="unitActions">
     <button id="btnMove">Move</button>
@@ -81,6 +96,8 @@
 <script src="js/ui.js"></script>
 <script src="js/render.js"></script>
 <script src="js/minimap.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/landing.js"></script>
 <script src="js/input.js"></script>
 <script src="js/main.js"></script>
 </body>

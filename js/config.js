@@ -1,5 +1,23 @@
 // config.js - tiles, colors, constants
-const MAP_W = 128, MAP_H = 128, TILE = 8;
+// Map dimensions are chosen on the landing screen, so these are not constant.
+// Everything reads them at call time; setMapSize() is the only writer.
+let MAP_W = 128, MAP_H = 128;
+const TILE = 8;
+const MAP_SIZES = {
+  small:  { w: 64,  h: 64,  label: 'Small',  blurb: 'A quick skirmish' },
+  medium: { w: 96,  h: 96,  label: 'Medium', blurb: 'Room to expand' },
+  large:  { w: 128, h: 128, label: 'Large',  blurb: 'The full world' }
+};
+const DEFAULT_MAP_SIZE = 'large';
+let mapSizeKey = DEFAULT_MAP_SIZE;
+
+/** Feature counts are tuned for 128×128; scale them by area on smaller maps. */
+function mapAreaScale() {
+  return (MAP_W * MAP_H) / (128 * 128);
+}
+function scaledCount(n, min = 1) {
+  return Math.max(min, Math.round(n * mapAreaScale()));
+}
 const TILE_DIRT = 0, TILE_ROCK = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_STUMP = 4, TILE_BASE = 5, TILE_JET = 6, TILE_TUNNEL = 7, TILE_ARMORY = 8, TILE_HUT = 9;
 const COLORS = {
   [TILE_DIRT]: '#8B5A2B', [TILE_ROCK]: '#6B6B6B', [TILE_WATER]: '#1E6BB8',

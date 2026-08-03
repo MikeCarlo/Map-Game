@@ -47,8 +47,17 @@ function buildMinimapPalettes() {
   minimapUnknown = packColor(FOG_UNEXPLORED_COLOR);
 }
 
+/** Map dimensions changed — the buffer and its ImageData must be rebuilt. */
+function invalidateMinimapBuffer() {
+  minimapBuffer = null;
+  minimapBufferCtx = null;
+  minimapImage = null;
+  minimapPixels = null;
+}
+
 function ensureMinimap() {
-  if (minimapCtx) return true;
+  if (minimapCtx && minimapBufferCtx &&
+      minimapBuffer.width === MAP_W && minimapBuffer.height === MAP_H) return true;
   minimapCanvas = document.getElementById('minimap');
   if (!minimapCanvas) return false;
   minimapCanvas.width = MINIMAP_RES;

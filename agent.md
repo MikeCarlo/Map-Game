@@ -29,7 +29,8 @@ Order matters (globals, no modules):
 ```
 config.js → state.js → map.js → fog.js → pathfinding.js
 → actions1.js → actions2.js → actions3.js → actions4.js → actions5.js
-→ buildings.js → drops.js → training.js → construction.js → combat.js → ui.js → render.js → minimap.js → input.js → main.js
+→ buildings.js → drops.js → training.js → construction.js → combat.js → ui.js → render.js → minimap.js
+→ tutorial.js → landing.js → input.js → main.js
 ```
 
 `js/actions.js` is a **stub only** (comment pointing at the split files). Do not put logic there.
@@ -56,6 +57,8 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 | `js/ui.js` | Bottom bar visibility, info text, selection chrome |
 | `js/render.js` | Canvas draw, pie-arc unit HP, death stains |
 | `js/minimap.js` | Minimap overview canvas, tap-to-jump camera |
+| `js/tutorial.js` | Guided levels: step definitions, predicates, panel |
+| `js/landing.js` | Start screen, map-size selection, `startGame` |
 | `js/input.js` | Touch/mouse, pan vs SELECT mode, action targeting |
 | `js/main.js` | Game loop, timers, button listeners, init |
 | `css/style.css` | UI layout |
@@ -76,6 +79,9 @@ config.js → state.js → map.js → fog.js → pathfinding.js
 - **Buildings:** multi-tile footprints; **per-tile HP** in `buildingHpMap`. Color lerps toward grey as HP drops. Aggregate % shown when selecting base/armory.
 - **Fog of war:** two `Uint8Array(MAP_W * MAP_H)` layers in `fog.js`. `updateVisibility()` runs once per frame from `main.js` (~0.1 ms) — it clears `visibleMap` and re-stamps a disc per player unit / base segment / armory; `exploredMap` only ever grows. Anything that reveals live state (enemy units, jet pulses, death stains, hut damage, enemy counts in the info bar) must check `isTileVisible` / `isPointVisible`; anything the player could plausibly remember (terrain, resource auto-search targets, hut selection) checks `isTileExplored`. `FOG_ENABLED = false` in `config.js` turns the whole thing off. **Known gap:** A* still paths on the true map, so units route around unseen obstacles.
 - **Minimap:** own canvas overlay (`#minimap`), redrawn from the tail of `draw()`. Terrain is a 1 px-per-tile `ImageData` written through a `Uint32Array` view using flat per-tile-type palettes (lit + dimmed), then upscaled with smoothing off — ~0.1 ms/frame. It reads the same fog helpers as the main view, so it can never show more than the player knows. Its pointer handlers `stopPropagation` so taps never reach the game canvas.
+- **Startup:** there is **no world on page load**. `initGame` only builds the landing screen; `startGame(sizeKey, level)` in `landing.js` is the single entry point that generates a map and resets state. `draw()` / `updateVisibility()` no-op while `map` is null, so the loop spins harmlessly behind the overlay.
+- **Map size:** `MAP_W` / `MAP_H` are `let`, not `const` — `setMapSize()` is the only writer, and it must call `invalidateMinimapBuffer()` because the minimap's `ImageData` is sized to the old map. Everything else reads the dimensions at call time. Generation counts are tuned for 128×128 and scaled by `scaledCount()` / `mapAreaScale()`, so a small map is not over-dense.
+- **Tutorial:** `TUTORIAL_LEVELS` in `tutorial.js`. Steps are checked **sequentially** — only the current step's `done()` runs, so a later objective being true early cannot skip the teaching before it. A step with no `done()` is informational and waits for the *Got it* button. `setup()` seeds the level (`tutorialGrantArmory`, `tutorialPlantGrove`, `tutorialSeedVirelium`, `tutorialSpawn`) — map generation is random, so a level that says "cut a tree" must plant one rather than hope. Progress lives in `localStorage` under `mapgame.tutorial.completed`.
 - **Sticky Move:** every `actionMode` is one-shot (cleared in `input.js` once the order lands) **except** `moveTarget`, which stays armed so the player can keep re-routing. It is cleared by the Move button toggling itself off, by `clearSelection` / `setMultiSelection`, or by tapping a unit outside the current selection (which selects that unit instead of moving onto it). Tapping a unit *inside* the selection is still a move target.
 - **Occupancy:** idle units cannot share a stand tile (`isTileBlockedForStand` / goal reservation).
 - **Mobile SELECT mode:** double-tap empty ground toggles pan vs locked; long-press drag box-select only when locked. Grey dashed viewport border in SELECT mode.
